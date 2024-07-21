@@ -2,6 +2,7 @@ import os
 import sqlite3
 import faiss
 import numpy as np
+import pickle
 
 class VectorDatabase:
     """
@@ -19,8 +20,11 @@ class VectorDatabase:
         self.dimension = 1024  # Ensure this matches the dimension of your embedding vectors
         self.conn = None
         self.cursor = None
+        self.id_to_index = {}
+        self.index_to_id_map = {}
         self.setup_sqlite()
         self.setup_faiss()
+        self.load_mappings()
 
     def setup_sqlite(self):
         """
@@ -56,6 +60,9 @@ class VectorDatabase:
         self.conn.commit()
         self.index.reset()
         faiss.write_index(self.index, self.config["faiss_index_path"])
+        self.id_to_index.clear()
+        self.index_to_id_map.clear()
+        self.save_mappings()
         print(f"\nDatabase cleared.")
 
     def store_embeddings(self, document_id, embeddings):
@@ -70,8 +77,14 @@ class VectorDatabase:
         if embeddings_array.ndim == 1:
             embeddings_array = embeddings_array.reshape(1, -1)
         assert embeddings_array.shape[1] == self.dimension, f"Embedding dimension mismatch: {embeddings_array.shape[1]} != {self.dimension}"
+        start_index = self.index.ntotal
         self.index.add(embeddings_array)
+        for i in range(embeddings_array.shape[0]):
+            index = start_index + i
+            self.id_to_index[document_id] = index
+            self.index_to_id_map[index] = document_id
         faiss.write_index(self.index, self.config["faiss_index_path"])
+        self.save_mappings()
         print(f"Embeddings for document {document_id} stored.")
 
     def is_document_processed(self, document_id):
@@ -131,3 +144,60 @@ class VectorDatabase:
         if self.conn:
             self.conn.close()
         print(f"\nDatabase connection closed.")
+
+    def query_embeddings(self, query_vector, top_k=5):
+        """
+        Query the FAISS index for the most similar embeddings.
+
+        Args:
+            query_vector (np.ndarray): The query embedding vector.
+            top_k (int): The number of top results to return.
+
+        Returns:
+            list: List of indices of the top_k similar embeddings.
+        """
+        query_vector = np.array(query_vector).astype(np.float32).reshape(1, -1)
+        distances, indices = self.index.search(query_vector, top_k)
+        return indices[0]
+
+    def get_document_metadata(self, document_ids):
+        """
+        Retrieve the metadata for the given document IDs.
+
+        Args:
+            document_ids (list): List of document IDs.
+
+        Returns:
+            list: List of tuples containing document IDs and file paths.
+        """
+        placeholders = ', '.join('?' for _ in document_ids)
+        query = f"SELECT id, file_path FROM documents WHERE id IN ({placeholders})"
+        self.cursor.execute(query, document_ids)
+        return self.cursor.fetchall()
+
+    def index_to_id(self, index):
+        """
+        Convert an index from the FAISS index to a document ID.
+
+        Args:
+            index (int): Index from the FAISS index.
+
+        Returns:
+            str: Corresponding document ID.
+        """
+        return self.index_to_id_map.get(index)
+
+    def save_mappings(self):
+        """
+        Save the index-to-ID mappings to a file.
+        """
+        with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'wb') as f:
+            pickle.dump((self.id_to_index, self.index_to_id_map), f)
+
+    def load_mappings(self):
+        """
+        Load the index-to-ID mappings from a file.
+        """
+        if os.path.exists(self.config["sqlite_db_path"] + '_mappings.pkl'):
+            with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'rb') as f:
+                self.id_to_index, self.index_to_id_map = pickle.load(f)
