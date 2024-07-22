@@ -1,15 +1,18 @@
 import json
 import numpy as np
-from ollama import embeddings
+from sentence_transformers import SentenceTransformer
 from vector_db.database import VectorDatabase
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname=s - %(message)s')
+
+# Initialize SBERT model
+model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
 
 def generate_query_embedding(query_text):
     """
-    Generate an embedding for the query text using the mxbai-embed-large model from Ollama.
+    Generate an embedding for the query text using SBERT Multilingual.
 
     Args:
         query_text (str): The query text.
@@ -17,8 +20,7 @@ def generate_query_embedding(query_text):
     Returns:
         np.ndarray: The embedding vector for the query text.
     """
-    result = embeddings(model="mxbai-embed-large", prompt=f"Represent this sentence for searching relevant passages: {query_text}")
-    embedding = np.array(result["embedding"]).astype(np.float32)
+    embedding = model.encode(query_text)
     return embedding
 
 def main():
@@ -30,7 +32,7 @@ def main():
     vector_db = VectorDatabase(config)
 
     # Example query text
-    query_text = "ongoing advancements "
+    query_text = "little golden key in the lock"
 
     # Generate the query embedding
     query_vector = generate_query_embedding(query_text)

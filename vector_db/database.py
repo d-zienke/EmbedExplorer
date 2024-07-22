@@ -21,7 +21,7 @@ class VectorDatabase:
             config (dict): Configuration dictionary.
         """
         self.config = config
-        self.dimension = 1024  # Ensure this matches the dimension of your embedding vectors
+        self.dimension = 384  # Update this to match the SBERT model's embedding dimension
         self.conn = None
         self.cursor = None
         self.id_to_index = {}
@@ -52,6 +52,10 @@ class VectorDatabase:
         """
         if os.path.exists(self.config["faiss_index_path"]):
             self.index = faiss.read_index(self.config["faiss_index_path"])
+            if self.index.d != self.dimension:
+                logging.warning("Existing FAISS index dimension does not match. Reinitializing index.")
+                self.index = faiss.IndexFlatL2(self.dimension)
+                faiss.write_index(self.index, self.config["faiss_index_path"])
         else:
             self.index = faiss.IndexFlatL2(self.dimension)
         logging.info("FAISS setup complete.")
