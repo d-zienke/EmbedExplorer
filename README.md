@@ -25,6 +25,7 @@ EmbedExplorer/
 ├── chatbot/
 │ ├── __init__.py
 │ ├── config.json
+│ ├── model_handler.py
 │ ├── query_handler.py
 │ └── response_generator.py
 │
@@ -75,10 +76,13 @@ EmbedExplorer/
 
 4. **Configure the Environment**:
 
-Create an `.env` file in the root directory and add your Hugging Face token:
+Create an `.env` file in the root directory and add your Hugging Face token and/or OpenAI token.
+
+_(If you don't intend to use OpenAI's model, write anything for OPENAI_API_KEY)_
 
 ```env
-HUGGINGFACE_TOKEN=your_huggingface_token_here
+HUGGINGFACE_TOKEN="your_huggingface_token_here"
+OPENAI_API_KEY="your_openai_token_here"
 ```
 
 ## Configuration
@@ -97,10 +101,21 @@ Edit the `config.json` file in the `vector_db/` directory to configure chunk siz
 
 Edit the config.json file in the chatbot/ directory to configure model names and other settings.
 
+**Note:** Change the "model_type" to **"llama"** if you want to use Llama-3-8B
+
 ```json
 {
+	"model_type": "gpt-4o-mini",
 	"llama_model_name": "meta-llama/Meta-Llama-3-8B",
-	"sbert_model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+	"sbert_model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+	"gpt4_model_name": "gpt-4o-mini",
+	"openai_api_key": "your_openai_api_key",
+	"temperature": 0.7,
+	"max_tokens": 300,
+	"top_p": 0.9,
+	"frequency_penalty": 0.2,
+	"presence_penalty": 0.2,
+	"system_prompt": "You are a knowledgeable assistant. Your primary function is to provide information strictly based on the embedded documents. When answering queries, ensure your responses are concise and directly related to the content of the documents. If possible, always include the title of the source document in your response to indicate the origin of the information. If a query cannot be answered from the documents, state that explicitly. If a query requests general information or opinions, make it clear that your primary function is to provide information based on the embedded documents."
 }
 ```
 
@@ -136,6 +151,10 @@ Manages the SQLite and FAISS database operations.
 ### `vector_db/document_processor.py`
 
 Processes documents, extracts text, chunks text, generates embeddings, and stores them in the database.
+
+### `chatbot/model_handler.py`
+
+Manages the language models (GPT-4o-mini and LLaMA), generates embeddings using SBERT, generates responses using the appropriate model based on configuration.
 
 ### `chatbot/query_handler.py`
 
