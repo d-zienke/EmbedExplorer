@@ -22,6 +22,12 @@ EmbedExplorer/
 │ ├── database.py
 │ └── document_processor.py
 │
+├── chatbot/
+│ ├── __init__.py
+│ ├── config.json
+│ ├── query_handler.py
+│ └── response_generator.py
+│
 ├── knowledge/
 │ └── text_documents/ # Place your text documents here
 │
@@ -57,11 +63,13 @@ EmbedExplorer/
    pip install -r requirements.txt
    ```
 
-4. **Download the Ollama Embedding Model**:
+4. **Configure the Environment**:
 
-   ```sh
-   ollama pull mxbai-embed-large
-   ```
+Create an `.env` file in the root directory and add your Hugging Face token:
+
+```env
+HUGGINGFACE_TOKEN=your_huggingface_token_here
+```
 
 ## Configuration
 
@@ -74,6 +82,15 @@ Edit the `config.json` file in the `vector_db/` directory to configure chunk siz
 	"sqlite_db_path": "database/metadata.db",
 	"faiss_index_path": "database/faiss.index",
 	"embedding_model": "mxbai-embed-large"
+}
+```
+
+Edit the config.json file in the chatbot/ directory to configure model names and other settings.
+
+```json
+{
+	"llama_model_name": "meta-llama/Meta-Llama-3-8B",
+	"sbert_model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 }
 ```
 
@@ -109,6 +126,14 @@ Manages the SQLite and FAISS database operations.
 ### `vector_db/document_processor.py`
 
 Processes documents, extracts text, chunks text, generates embeddings, and stores them in the database.
+
+### `chatbot/query_handler.py`
+
+Handles document retrieval based on query embeddings.
+
+### `chatbot/response_generator.py`
+
+Generates chatbot responses using the LLaMA model.
 
 ### `tests/test_database.py`
 
