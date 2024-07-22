@@ -4,7 +4,7 @@ from PyPDF2 import PdfReader
 import markdown
 import re
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from ollama import embeddings
+from sentence_transformers import SentenceTransformer
 import logging
 
 # Configure logging
@@ -25,6 +25,9 @@ class DocumentProcessor:
         """
         self.config = config
         self.vector_db = vector_db
+        self.model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+        logging.info(f"Use pytorch device_name: {self.model.device}")
+        logging.info(f"Load pretrained SentenceTransformer: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
 
     def extract_text_from_pdf(self, file_path):
         """
@@ -104,11 +107,7 @@ class DocumentProcessor:
         Returns:
             list: List of embeddings.
         """
-        embedding_vectors = []
-        for chunk in text_chunks:
-            result = embeddings(model=self.config["embedding_model"], prompt=f"Represent this sentence for searching relevant passages: {chunk}")
-            vector = result["embedding"]
-            embedding_vectors.append(vector)
+        embedding_vectors = self.model.encode(text_chunks, convert_to_tensor=False)
         logging.info(f"Generated {len(embedding_vectors)} embeddings.")
         return embedding_vectors
 
