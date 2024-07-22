@@ -130,3 +130,6 @@ knowledge/text_documents/
 
 # VSCode settings
 .vscode/
+
+# cache folder
+cache/

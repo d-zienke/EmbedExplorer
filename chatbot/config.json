@@ -1,0 +1,4 @@
+{
+	"llama_model_name": "meta-llama/Meta-Llama-3-8B",
+	"sbert_model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+}
