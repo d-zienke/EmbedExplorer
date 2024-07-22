@@ -1,7 +1,7 @@
 {
-  "chunk_size": 300,
-  "chunk_overlap": 50,
-  "sqlite_db_path": "database/metadata.db",
-  "faiss_index_path": "database/faiss.index",
-  "embedding_model": "mxbai-embed-large"
+	"chunk_size": 300,
+	"chunk_overlap": 50,
+	"sqlite_db_path": "database/metadata.db",
+	"faiss_index_path": "database/faiss.index",
+	"embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
 }

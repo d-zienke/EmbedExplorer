@@ -34,44 +34,56 @@ class VectorDatabase:
         """
         Set up the SQLite database connection and cursor.
         """
-        self.conn = sqlite3.connect(self.config["sqlite_db_path"])
-        self.cursor = self.conn.cursor()
-        self.cursor.execute('''
-            CREATE TABLE IF NOT EXISTS documents (
-                id TEXT PRIMARY KEY,
-                file_path TEXT,
-                status TEXT
-            )
-        ''')
-        self.conn.commit()
-        logging.info("SQLite setup complete.")
+        try:
+            self.conn = sqlite3.connect(self.config["sqlite_db_path"])
+            self.cursor = self.conn.cursor()
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS documents (
+                    id TEXT PRIMARY KEY,
+                    file_path TEXT,
+                    status TEXT
+                )
+            ''')
+            self.conn.commit()
+            logging.info("SQLite setup complete.")
+        except sqlite3.Error as e:
+            logging.error(f"SQLite setup error: {e}")
+            raise
 
     def setup_faiss(self):
         """
         Set up the FAISS index.
         """
-        if os.path.exists(self.config["faiss_index_path"]):
-            self.index = faiss.read_index(self.config["faiss_index_path"])
-            if self.index.d != self.dimension:
-                logging.warning("Existing FAISS index dimension does not match. Reinitializing index.")
+        try:
+            if os.path.exists(self.config["faiss_index_path"]):
+                self.index = faiss.read_index(self.config["faiss_index_path"])
+                if self.index.d != self.dimension:
+                    logging.warning("Existing FAISS index dimension does not match. Reinitializing index.")
+                    self.index = faiss.IndexFlatL2(self.dimension)
+                    faiss.write_index(self.index, self.config["faiss_index_path"])
+            else:
                 self.index = faiss.IndexFlatL2(self.dimension)
-                faiss.write_index(self.index, self.config["faiss_index_path"])
-        else:
-            self.index = faiss.IndexFlatL2(self.dimension)
-        logging.info("FAISS setup complete.")
+            logging.info("FAISS setup complete.")
+        except Exception as e:
+            logging.error(f"FAISS setup error: {e}")
+            raise
 
     def clear_database(self):
         """
         Clear the SQLite and FAISS databases.
         """
-        self.cursor.execute("DELETE FROM documents")
-        self.conn.commit()
-        self.index.reset()
-        faiss.write_index(self.index, self.config["faiss_index_path"])
-        self.id_to_index.clear()
-        self.index_to_id_map.clear()
-        self.save_mappings()
-        logging.info("Database cleared.")
+        try:
+            self.cursor.execute("DELETE FROM documents")
+            self.conn.commit()
+            self.index.reset()
+            faiss.write_index(self.index, self.config["faiss_index_path"])
+            self.id_to_index.clear()
+            self.index_to_id_map.clear()
+            self.save_mappings()
+            logging.info("Database cleared.")
+        except Exception as e:
+            logging.error(f"Error clearing database: {e}")
+            raise
 
     def store_embeddings(self, document_id, embeddings):
         """
@@ -81,19 +93,23 @@ class VectorDatabase:
             document_id (str): Document ID.
             embeddings (list): List of embeddings.
         """
-        embeddings_array = np.array(embeddings).astype(np.float32)
-        if embeddings_array.ndim == 1:
-            embeddings_array = embeddings_array.reshape(1, -1)
-        assert embeddings_array.shape[1] == self.dimension, f"Embedding dimension mismatch: {embeddings_array.shape[1]} != {self.dimension}"
-        start_index = self.index.ntotal
-        self.index.add(embeddings_array)
-        for i in range(embeddings_array.shape[0]):
-            index = start_index + i
-            self.id_to_index[document_id] = index
-            self.index_to_id_map[index] = document_id
-        faiss.write_index(self.index, self.config["faiss_index_path"])
-        self.save_mappings()
-        logging.info(f"Embeddings for document {document_id} stored.")
+        try:
+            embeddings_array = np.array(embeddings).astype(np.float32)
+            if embeddings_array.ndim == 1:
+                embeddings_array = embeddings_array.reshape(1, -1)
+            assert embeddings_array.shape[1] == self.dimension, f"Embedding dimension mismatch: {embeddings_array.shape[1]} != {self.dimension}"
+            start_index = self.index.ntotal
+            self.index.add(embeddings_array)
+            for i in range(embeddings_array.shape[0]):
+                index = start_index + i
+                self.id_to_index[document_id] = index
+                self.index_to_id_map[index] = document_id
+            faiss.write_index(self.index, self.config["faiss_index_path"])
+            self.save_mappings()
+            logging.info(f"Embeddings for document {document_id} stored.")
+        except Exception as e:
+            logging.error(f"Error storing embeddings for document {document_id}: {e}")
+            raise
 
     def is_document_processed(self, document_id):
         """
@@ -105,9 +121,13 @@ class VectorDatabase:
         Returns:
             bool: True if the document is processed, False otherwise.
         """
-        self.cursor.execute("SELECT status FROM documents WHERE id=?", (document_id,))
-        result = self.cursor.fetchone()
-        return result is not None
+        try:
+            self.cursor.execute("SELECT status FROM documents WHERE id=?", (document_id,))
+            result = self.cursor.fetchone()
+            return result is not None
+        except sqlite3.Error as e:
+            logging.error(f"Error checking document {document_id}: {e}")
+            raise
 
     def mark_document_as_processed(self, document_id, file_path):
         """
@@ -117,10 +137,14 @@ class VectorDatabase:
             document_id (str): Document ID.
             file_path (str): File path of the document.
         """
-        if not self.is_document_processed(document_id):
-            self.cursor.execute("INSERT INTO documents (id, file_path, status) VALUES (?, ?, ?)", (document_id, file_path, 'processed'))
-            self.conn.commit()
-            logging.info(f"Document {document_id} marked as processed.")
+        try:
+            if not self.is_document_processed(document_id):
+                self.cursor.execute("INSERT INTO documents (id, file_path, status) VALUES (?, ?, ?)", (document_id, file_path, 'processed'))
+                self.conn.commit()
+                logging.info(f"Document {document_id} marked as processed.")
+        except sqlite3.Error as e:
+            logging.error(f"Error marking document {document_id} as processed: {e}")
+            raise
 
     def list_documents(self):
         """
@@ -129,8 +153,12 @@ class VectorDatabase:
         Returns:
             list: List of tuples containing document IDs and file paths.
         """
-        self.cursor.execute("SELECT id, file_path FROM documents")
-        return self.cursor.fetchall()
+        try:
+            self.cursor.execute("SELECT id, file_path FROM documents")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logging.error(f"Error listing documents: {e}")
+            raise
 
     def delete_document(self, document_id):
         """
@@ -139,19 +167,27 @@ class VectorDatabase:
         Args:
             document_id (str): Document ID.
         """
-        self.cursor.execute("DELETE FROM documents WHERE id=?", (document_id,))
-        self.conn.commit()
-        logging.info(f"Document {document_id} deleted from database.")
+        try:
+            self.cursor.execute("DELETE FROM documents WHERE id=?", (document_id,))
+            self.conn.commit()
+            logging.info(f"Document {document_id} deleted from database.")
+        except sqlite3.Error as e:
+            logging.error(f"Error deleting document {document_id}: {e}")
+            raise
 
     def close(self):
         """
         Close the SQLite database connection and cursor.
         """
-        if self.cursor:
-            self.cursor.close()
-        if self.conn:
-            self.conn.close()
-        logging.info("Database connection closed.")
+        try:
+            if self.cursor:
+                self.cursor.close()
+            if self.conn:
+                self.conn.close()
+            logging.info("Database connection closed.")
+        except sqlite3.Error as e:
+            logging.error(f"Error closing database connection: {e}")
+            raise
 
     def query_embeddings(self, query_vector, top_k=5):
         """
@@ -164,10 +200,14 @@ class VectorDatabase:
         Returns:
             list: List of indices of the top_k similar embeddings.
         """
-        query_vector = np.array(query_vector).astype(np.float32).reshape(1, -1)
-        distances, indices = self.index.search(query_vector, top_k)
-        logging.info(f"Queried FAISS index with top_k={top_k}")
-        return indices[0]
+        try:
+            query_vector = np.array(query_vector).astype(np.float32).reshape(1, -1)
+            distances, indices = self.index.search(query_vector, top_k)
+            logging.info(f"Queried FAISS index with top_k={top_k}")
+            return indices[0]
+        except Exception as e:
+            logging.error(f"Error querying embeddings: {e}")
+            raise
 
     def get_document_metadata(self, document_ids):
         """
@@ -179,11 +219,15 @@ class VectorDatabase:
         Returns:
             list: List of tuples containing document IDs and file paths.
         """
-        placeholders = ', '.join('?' for _ in document_ids)
-        query = f"SELECT id, file_path FROM documents WHERE id IN ({placeholders})"
-        self.cursor.execute(query, document_ids)
-        logging.info(f"Retrieved metadata for document IDs: {document_ids}")
-        return self.cursor.fetchall()
+        try:
+            placeholders = ', '.join('?' for _ in document_ids)
+            query = f"SELECT id, file_path FROM documents WHERE id IN ({placeholders})"
+            self.cursor.execute(query, document_ids)
+            logging.info(f"Retrieved metadata for document IDs: {document_ids}")
+            return self.cursor.fetchall()
+        except sqlite3.Error as e:
+            logging.error(f"Error retrieving metadata: {e}")
+            raise
 
     def index_to_id(self, index):
         """
@@ -201,15 +245,23 @@ class VectorDatabase:
         """
         Save the index-to-ID mappings to a file.
         """
-        with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'wb') as f:
-            pickle.dump((self.id_to_index, self.index_to_id_map), f)
-        logging.info("Saved index-to-ID mappings.")
+        try:
+            with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'wb') as f:
+                pickle.dump((self.id_to_index, self.index_to_id_map), f)
+            logging.info("Saved index-to-ID mappings.")
+        except Exception as e:
+            logging.error(f"Error saving mappings: {e}")
+            raise
 
     def load_mappings(self):
         """
         Load the index-to-ID mappings from a file.
         """
-        if os.path.exists(self.config["sqlite_db_path"] + '_mappings.pkl'):
-            with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'rb') as f:
-                self.id_to_index, self.index_to_id_map = pickle.load(f)
-            logging.info("Loaded index-to-ID mappings.")
+        try:
+            if os.path.exists(self.config["sqlite_db_path"] + '_mappings.pkl'):
+                with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'rb') as f:
+                    self.id_to_index, self.index_to_id_map = pickle.load(f)
+                logging.info("Loaded index-to-ID mappings.")
+        except Exception as e:
+            logging.error(f"Error loading mappings: {e}")
+            raise

@@ -1,5 +1,3 @@
-# chatbot/query_handler.py
-
 import json
 from sentence_transformers import SentenceTransformer
 from vector_db.database import VectorDatabase
@@ -8,9 +6,10 @@ import os
 from PyPDF2 import PdfReader
 import markdown
 import re
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname=s - %(message=s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Load configuration from chatbot/config.json
 with open('chatbot/config.json', 'r') as file:
@@ -98,3 +97,17 @@ def read_document(file_path):
     else:
         raise ValueError("Unsupported file type")
     return text
+
+def read_documents_in_parallel(file_paths):
+    """
+    Read multiple documents in parallel.
+
+    Args:
+        file_paths (list): List of file paths.
+
+    Returns:
+        list: List of document contents.
+    """
+    with ThreadPoolExecutor() as executor:
+        results = list(executor.map(read_document, file_paths))
+    return results

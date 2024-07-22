@@ -21,7 +21,7 @@ class TestVectorDatabase(unittest.TestCase):
             "chunk_overlap": 50,
             "sqlite_db_path": os.path.join(cls.test_dir, "metadata.db"),
             "faiss_index_path": os.path.join(cls.test_dir, "faiss.index"),
-            "embedding_model": "mxbai-embed-large"
+            "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
         }
 
     @classmethod

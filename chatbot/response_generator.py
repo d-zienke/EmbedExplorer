@@ -1,13 +1,12 @@
-# chatbot/response_generator.py
-
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import logging
 from dotenv import load_dotenv
 import os
 import json
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message=s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname=s - %(message=s')
 
 # Load the environment variables from the .env file
 load_dotenv()
@@ -52,6 +51,20 @@ def generate_llama_response(prompt):
     response = llama_tokenizer.decode(outputs[0], skip_special_tokens=True)
     return response
 
+def generate_llama_responses(prompts):
+    """
+    Generate responses for multiple prompts using the LLaMA model in parallel.
+
+    Args:
+        prompts (list): List of input prompts for the LLaMA model.
+
+    Returns:
+        list: List of generated responses.
+    """
+    with ThreadPoolExecutor() as executor:
+        responses = list(executor.map(generate_llama_response, prompts))
+    return responses
+
 def generate_chatbot_response(query_text, metadata):
     """
     Generate a response for the chatbot based on the query text.
@@ -63,15 +76,21 @@ def generate_chatbot_response(query_text, metadata):
     Returns:
         str: The chatbot's response.
     """
-    from chatbot.query_handler import read_document
+    from chatbot.query_handler import read_documents_in_parallel
     
-    responses = []
+    file_paths = [file_path for _, file_path in metadata]
+    contents = read_documents_in_parallel(file_paths)
+    
+    prompts = [
+        f"Based on the following content:\n\n{content[:500]}\n\nAnswer the question: {query_text}"
+        for content in contents
+    ]
 
-    for doc_id, file_path in metadata:
-        content = read_document(file_path)
-        snippet = content[:500]  # Limiting to 500 characters for brevity
-        prompt = f"Based on the following content:\n\n{snippet}\n\nAnswer the question: {query_text}"
-        response = generate_llama_response(prompt)
-        responses.append(f"Document ID: {doc_id}\nFile Path: {file_path}\nResponse:\n{response}\n")
+    responses = generate_llama_responses(prompts)
 
-    return "\n\n".join(responses)
+    formatted_responses = [
+        f"Document ID: {doc_id}\nFile Path: {file_path}\nResponse:\n{response}\n"
+        for (doc_id, file_path), response in zip(metadata, responses)
+    ]
+
+    return "\n\n".join(formatted_responses)
