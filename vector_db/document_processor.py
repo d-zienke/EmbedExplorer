@@ -25,9 +25,8 @@ class DocumentProcessor:
         """
         self.config = config
         self.vector_db = vector_db
-        self.model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
-        logging.info(f"Use pytorch device_name: {self.model.device}")
-        logging.info(f"Load pretrained SentenceTransformer: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2")
+        self.model = SentenceTransformer(self.config["embedding_model"])
+        logging.info(f"Loaded embedding model: {self.config['embedding_model']}")
 
     def extract_text_from_pdf(self, file_path):
         """

@@ -38,6 +38,16 @@ EmbedExplorer/
 │
 ├── main.py # Main entry point
 │
+├── chatbot_example.py
+│
+├── example_query.py
+│
+├── process_documents.py
+│
+├── .env # for secrets
+│
+├── venv # virtual environment
+│
 └── requirements.txt # Dependencies
 ```
 
