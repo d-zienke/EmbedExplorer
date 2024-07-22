@@ -2,6 +2,10 @@ import json
 import os
 from vector_db.database import VectorDatabase
 from vector_db.document_processor import DocumentProcessor
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 def main():
     # Load configuration
@@ -20,10 +24,11 @@ def main():
         file_path = os.path.join(knowledge_path, file_name)
         if os.path.isfile(file_path):
             doc_processor.process_document(file_path)
+            logging.info(f"Document processed: {file_path}")
 
     # List stored documents
     documents = vector_db.list_documents()
-    print("Stored documents:", documents)
+    logging.info(f"Stored documents: {documents}")
 
     # Close the vector database
     vector_db.close()
