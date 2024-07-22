@@ -1,10 +1,14 @@
 import os
 import hashlib
-from PyPDF2 import PdfFileReader
+from PyPDF2 import PdfReader
 import markdown
 import re
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from ollama import embeddings
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class DocumentProcessor:
     """
@@ -33,10 +37,11 @@ class DocumentProcessor:
             str: Extracted text.
         """
         with open(file_path, 'rb') as file:
-            reader = PdfFileReader(file)
+            reader = PdfReader(file)
             text = ""
-            for page_num in range(reader.numPages):
-                text += reader.getPage(page_num).extractText()
+            for page in reader.pages:
+                text += page.extract_text()
+            logging.info(f"Extracted text from PDF: {file_path}")
             return text
 
     def extract_text_from_txt(self, file_path):
@@ -50,7 +55,9 @@ class DocumentProcessor:
             str: Extracted text.
         """
         with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
+            text = file.read()
+        logging.info(f"Extracted text from TXT: {file_path}")
+        return text
 
     def extract_text_from_markdown(self, file_path):
         """
@@ -66,6 +73,7 @@ class DocumentProcessor:
             md = file.read()
         html = markdown.markdown(md)
         text = ''.join(re.findall(r'>[^<]+<', html))  # Extract text between tags
+        logging.info(f"Extracted text from Markdown: {file_path}")
         return text
 
     def chunk_text(self, text):
@@ -82,7 +90,9 @@ class DocumentProcessor:
             chunk_size=self.config["chunk_size"],
             chunk_overlap=self.config["chunk_overlap"]
         )
-        return text_splitter.split_text(text)
+        chunks = text_splitter.split_text(text)
+        logging.info(f"Chunked text into {len(chunks)} segments.")
+        return chunks
 
     def generate_embeddings(self, text_chunks):
         """
@@ -99,6 +109,7 @@ class DocumentProcessor:
             result = embeddings(model=self.config["embedding_model"], prompt=f"Represent this sentence for searching relevant passages: {chunk}")
             vector = result["embedding"]
             embedding_vectors.append(vector)
+        logging.info(f"Generated {len(embedding_vectors)} embeddings.")
         return embedding_vectors
 
     def process_document(self, file_path):
@@ -124,4 +135,4 @@ class DocumentProcessor:
             embeddings = self.generate_embeddings(text_chunks)
             self.vector_db.store_embeddings(document_id, embeddings)
             self.vector_db.mark_document_as_processed(document_id, file_path)
-            print(f"Processed document {file_path} and stored embeddings.")
+            logging.info(f"Processed document {file_path} and stored embeddings.")

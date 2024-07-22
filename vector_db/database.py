@@ -3,6 +3,10 @@ import sqlite3
 import faiss
 import numpy as np
 import pickle
+import logging
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class VectorDatabase:
     """
@@ -40,7 +44,7 @@ class VectorDatabase:
             )
         ''')
         self.conn.commit()
-        print(f"\nSQLite setup complete.")
+        logging.info("SQLite setup complete.")
 
     def setup_faiss(self):
         """
@@ -50,7 +54,7 @@ class VectorDatabase:
             self.index = faiss.read_index(self.config["faiss_index_path"])
         else:
             self.index = faiss.IndexFlatL2(self.dimension)
-        print(f"\nFAISS setup complete.")
+        logging.info("FAISS setup complete.")
 
     def clear_database(self):
         """
@@ -63,7 +67,7 @@ class VectorDatabase:
         self.id_to_index.clear()
         self.index_to_id_map.clear()
         self.save_mappings()
-        print(f"\nDatabase cleared.")
+        logging.info("Database cleared.")
 
     def store_embeddings(self, document_id, embeddings):
         """
@@ -85,7 +89,7 @@ class VectorDatabase:
             self.index_to_id_map[index] = document_id
         faiss.write_index(self.index, self.config["faiss_index_path"])
         self.save_mappings()
-        print(f"Embeddings for document {document_id} stored.")
+        logging.info(f"Embeddings for document {document_id} stored.")
 
     def is_document_processed(self, document_id):
         """
@@ -112,7 +116,7 @@ class VectorDatabase:
         if not self.is_document_processed(document_id):
             self.cursor.execute("INSERT INTO documents (id, file_path, status) VALUES (?, ?, ?)", (document_id, file_path, 'processed'))
             self.conn.commit()
-            print(f"Document {document_id} marked as processed.")
+            logging.info(f"Document {document_id} marked as processed.")
 
     def list_documents(self):
         """
@@ -133,7 +137,7 @@ class VectorDatabase:
         """
         self.cursor.execute("DELETE FROM documents WHERE id=?", (document_id,))
         self.conn.commit()
-        print(f"Document {document_id} deleted from database.")
+        logging.info(f"Document {document_id} deleted from database.")
 
     def close(self):
         """
@@ -143,7 +147,7 @@ class VectorDatabase:
             self.cursor.close()
         if self.conn:
             self.conn.close()
-        print(f"\nDatabase connection closed.")
+        logging.info("Database connection closed.")
 
     def query_embeddings(self, query_vector, top_k=5):
         """
@@ -158,6 +162,7 @@ class VectorDatabase:
         """
         query_vector = np.array(query_vector).astype(np.float32).reshape(1, -1)
         distances, indices = self.index.search(query_vector, top_k)
+        logging.info(f"Queried FAISS index with top_k={top_k}")
         return indices[0]
 
     def get_document_metadata(self, document_ids):
@@ -173,6 +178,7 @@ class VectorDatabase:
         placeholders = ', '.join('?' for _ in document_ids)
         query = f"SELECT id, file_path FROM documents WHERE id IN ({placeholders})"
         self.cursor.execute(query, document_ids)
+        logging.info(f"Retrieved metadata for document IDs: {document_ids}")
         return self.cursor.fetchall()
 
     def index_to_id(self, index):
@@ -193,6 +199,7 @@ class VectorDatabase:
         """
         with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'wb') as f:
             pickle.dump((self.id_to_index, self.index_to_id_map), f)
+        logging.info("Saved index-to-ID mappings.")
 
     def load_mappings(self):
         """
@@ -201,3 +208,4 @@ class VectorDatabase:
         if os.path.exists(self.config["sqlite_db_path"] + '_mappings.pkl'):
             with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'rb') as f:
                 self.id_to_index, self.index_to_id_map = pickle.load(f)
+            logging.info("Loaded index-to-ID mappings.")
