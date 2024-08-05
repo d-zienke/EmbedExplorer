@@ -1,14 +1,15 @@
-import json
 import numpy as np
 from sentence_transformers import SentenceTransformer
 from vector_db.database import VectorDatabase
+from config import Config
 import logging
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname=s - %(message=s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# Initialize SBERT model
-model = SentenceTransformer('sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2')
+# Initialize SBERT model using the model defined in Config
+model = SentenceTransformer(Config.EMBEDDING_MODEL)
+
 
 def generate_query_embedding(query_text):
     """
@@ -23,13 +24,10 @@ def generate_query_embedding(query_text):
     embedding = model.encode(query_text)
     return embedding
 
-def main():
-    # Load configuration
-    with open('vector_db/config.json', 'r') as file:
-        config = json.load(file)
 
+def main():
     # Initialize the vector database
-    vector_db = VectorDatabase(config)
+    vector_db = VectorDatabase()
 
     # Example query text
     query_text = "little golden key in the lock"
@@ -55,6 +53,7 @@ def main():
 
     # Close the vector database
     vector_db.close()
+
 
 if __name__ == "__main__":
     main()

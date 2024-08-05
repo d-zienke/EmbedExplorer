@@ -4,6 +4,7 @@ import numpy as np
 import shutil
 from vector_db.database import VectorDatabase
 
+
 class TestVectorDatabase(unittest.TestCase):
     """
     Unit tests for the VectorDatabase class.
@@ -17,11 +18,12 @@ class TestVectorDatabase(unittest.TestCase):
         cls.test_dir = 'test_database'
         os.makedirs(cls.test_dir, exist_ok=True)
         cls.config = {
-            "chunk_size": 300,
-            "chunk_overlap": 50,
-            "sqlite_db_path": os.path.join(cls.test_dir, "metadata.db"),
-            "faiss_index_path": os.path.join(cls.test_dir, "faiss.index"),
-            "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+            "CHUNK_SIZE": 300,
+            "CHUNK_OVERLAP": 50,
+            "SQLITE_DB_PATH": os.path.join(cls.test_dir, "metadata.db"),
+            "FAISS_INDEX_PATH": os.path.join(cls.test_dir, "faiss.index"),
+            "EMBEDDING_MODEL": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            "EMBEDDING_DIMENSION": 384  # Ensure this matches the embedding model's dimension
         }
 
     @classmethod
@@ -43,10 +45,10 @@ class TestVectorDatabase(unittest.TestCase):
         Clean up the test environment after each test.
         """
         self.vector_db.close()
-        if os.path.exists(self.config["sqlite_db_path"]):
-            os.remove(self.config["sqlite_db_path"])
-        if os.path.exists(self.config["faiss_index_path"]):
-            os.remove(self.config["faiss_index_path"])
+        if os.path.exists(self.config["SQLITE_DB_PATH"]):
+            os.remove(self.config["SQLITE_DB_PATH"])
+        if os.path.exists(self.config["FAISS_INDEX_PATH"]):
+            os.remove(self.config["FAISS_INDEX_PATH"])
 
     def test_create_and_read_document(self):
         """
@@ -54,7 +56,7 @@ class TestVectorDatabase(unittest.TestCase):
         """
         document_id = 'test_doc_1'
         file_path = 'test_path_1'
-        embeddings = [np.random.rand(1024).astype(np.float32)]
+        embeddings = [np.random.rand(self.config["EMBEDDING_DIMENSION"]).astype(np.float32)]
 
         self.vector_db.mark_document_as_processed(document_id, file_path)
         self.vector_db.store_embeddings(document_id, embeddings)
@@ -72,7 +74,7 @@ class TestVectorDatabase(unittest.TestCase):
         """
         document_id = 'test_doc_2'
         file_path = 'test_path_2'
-        embeddings = [np.random.rand(1024).astype(np.float32)]
+        embeddings = [np.random.rand(self.config["EMBEDDING_DIMENSION"]).astype(np.float32)]
 
         self.vector_db.mark_document_as_processed(document_id, file_path)
         self.vector_db.store_embeddings(document_id, embeddings)
@@ -83,6 +85,7 @@ class TestVectorDatabase(unittest.TestCase):
 
         documents = self.vector_db.list_documents()
         self.assertEqual(len(documents), 0)
+
 
 if __name__ == '__main__':
     unittest.main()

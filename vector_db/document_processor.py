@@ -6,29 +6,30 @@ import re
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from sentence_transformers import SentenceTransformer
 import logging
+from config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class DocumentProcessor:
     """
     Class for processing documents and generating embeddings.
     """
 
-    def __init__(self, config, vector_db):
+    def __init__(self, vector_db):
         """
         Initialize the DocumentProcessor class.
 
         Args:
-            config (dict): Configuration dictionary.
             vector_db (VectorDatabase): Instance of the VectorDatabase class.
         """
-        self.config = config
         self.vector_db = vector_db
-        self.model = SentenceTransformer(self.config["embedding_model"])
-        logging.info(f"Loaded embedding model: {self.config['embedding_model']}")
+        self.model = SentenceTransformer(Config.EMBEDDING_MODEL)
+        logging.info(f"Loaded embedding model: {Config.EMBEDDING_MODEL}")
 
-    def extract_text_from_pdf(self, file_path):
+    @staticmethod
+    def extract_text_from_pdf(file_path):
         """
         Extract text from a PDF file.
 
@@ -46,7 +47,8 @@ class DocumentProcessor:
             logging.info(f"Extracted text from PDF: {file_path}")
             return text
 
-    def extract_text_from_txt(self, file_path):
+    @staticmethod
+    def extract_text_from_txt(file_path):
         """
         Extract text from a TXT file.
 
@@ -61,7 +63,8 @@ class DocumentProcessor:
         logging.info(f"Extracted text from TXT: {file_path}")
         return text
 
-    def extract_text_from_markdown(self, file_path):
+    @staticmethod
+    def extract_text_from_markdown(file_path):
         """
         Extract text from a Markdown file.
 
@@ -78,7 +81,8 @@ class DocumentProcessor:
         logging.info(f"Extracted text from Markdown: {file_path}")
         return text
 
-    def chunk_text(self, text):
+    @staticmethod
+    def chunk_text(text):
         """
         Chunk the text into smaller segments.
 
@@ -89,8 +93,8 @@ class DocumentProcessor:
             list: List of text chunks.
         """
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=self.config["chunk_size"],
-            chunk_overlap=self.config["chunk_overlap"]
+            chunk_size=Config.CHUNK_SIZE,
+            chunk_overlap=Config.CHUNK_OVERLAP
         )
         chunks = text_splitter.split_text(text)
         logging.info(f"Chunked text into {len(chunks)} segments.")

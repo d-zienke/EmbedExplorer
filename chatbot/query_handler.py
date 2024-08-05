@@ -9,23 +9,36 @@ import re
 from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime=s - %(levelname=s - %(message=s')
-
-# Load configuration from chatbot/config.json
-with open('chatbot/config.json', 'r') as file:
-    config = json.load(file)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # Initialize the model handler
-model_handler = ModelHandler(config)
+model_handler = ModelHandler()
+
 
 def generate_query_embedding(query_text):
+    """
+    Generate an embedding for the query text using SBERT Multilingual.
+
+    Args:
+        query_text (str): The query text.
+
+    Returns:
+        np.ndarray: The embedding vector for the query text.
+    """
     return model_handler.generate_embedding(query_text)
 
-def retrieve_relevant_documents(query_text, config_path='vector_db/config.json'):
-    with open(config_path, 'r') as file:
-        vector_db_config = json.load(file)
 
-    vector_db = VectorDatabase(vector_db_config)
+def retrieve_relevant_documents(query_text):
+    """
+    Retrieve the most relevant documents for the given query text.
+
+    Args:
+        query_text (str): Query text to search for.
+
+    Returns:
+        list: Metadata of the top relevant documents.
+    """
+    vector_db = VectorDatabase()
     query_vector = generate_query_embedding(query_text)
     logging.info(f"Query vector generated.")
     top_indices = vector_db.query_embeddings(query_vector, top_k=3)
@@ -37,7 +50,17 @@ def retrieve_relevant_documents(query_text, config_path='vector_db/config.json')
     vector_db.close()
     return metadata
 
+
 def read_document(file_path):
+    """
+    Read the contents of a document from the specified file path.
+
+    Args:
+        file_path (str): Path to the document file.
+
+    Returns:
+        str: Extracted text content from the document.
+    """
     ext = os.path.splitext(file_path)[-1].lower()
     if ext == ".pdf":
         with open(file_path, 'rb') as file:
@@ -57,7 +80,17 @@ def read_document(file_path):
         raise ValueError("Unsupported file type")
     return text
 
+
 def read_documents_in_parallel(file_paths):
+    """
+    Read multiple documents in parallel.
+
+    Args:
+        file_paths (list): List of file paths to read.
+
+    Returns:
+        list: List of text contents from the documents.
+    """
     with ThreadPoolExecutor() as executor:
         results = list(executor.map(read_document, file_paths))
     return results
