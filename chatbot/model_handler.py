@@ -4,12 +4,10 @@ import openai
 import os
 from config import Config
 
-
 class ModelHandler:
     """
     Handles model initialization and interactions for generating embeddings and responses.
     """
-
     def __init__(self):
         """
         Initialize the ModelHandler with the appropriate model based on the configuration.
@@ -18,23 +16,18 @@ class ModelHandler:
         self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
 
         if self.model_type == 'gpt-4o-mini':
-            openai.api_key = Config.OPENAI_API_KEY
-            self.client = openai.OpenAI(api_key=openai.api_key)
+            self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         elif self.model_type == 'llama':
-            self.tokenizer = AutoTokenizer.from_pretrained(Config.LLAMA_MODEL_NAME,
-                                                           token=os.getenv('HUGGINGFACE_TOKEN'))
-            self.model = AutoModelForCausalLM.from_pretrained(Config.LLAMA_MODEL_NAME,
-                                                              token=os.getenv('HUGGINGFACE_TOKEN'))
+            self.tokenizer = AutoTokenizer.from_pretrained(Config.LLAMA_MODEL_NAME, token=os.getenv('HUGGINGFACE_TOKEN'))
+            self.model = AutoModelForCausalLM.from_pretrained(Config.LLAMA_MODEL_NAME, token=os.getenv('HUGGINGFACE_TOKEN'))
         else:
             raise ValueError("Unsupported model type specified in config")
 
     def generate_embedding(self, text):
         """
         Generate an embedding for the given text using the configured embedding model.
-
         Args:
             text (str): Text to generate an embedding for.
-
         Returns:
             numpy.ndarray: Generated embedding.
         """
@@ -43,11 +36,9 @@ class ModelHandler:
     def generate_response(self, prompt, system_prompt=None):
         """
         Generate a response to the given prompt using the configured language model.
-
         Args:
             prompt (str): User prompt for the model.
             system_prompt (str): System prompt for additional context (optional).
-
         Returns:
             str: Generated response.
         """
