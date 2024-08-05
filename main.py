@@ -1,36 +1,12 @@
 import os
-import json
 import argparse
+import logging
 from vector_db.database import VectorDatabase
 from vector_db.document_processor import DocumentProcessor
-import logging
+from config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-def load_config(config_path):
-    """
-    Load the configuration file.
-
-    Args:
-        config_path (str): Path to the configuration file.
-
-    Returns:
-        dict: Configuration dictionary.
-    """
-    if not os.path.exists(config_path):
-        raise FileNotFoundError(f"Configuration file not found: {config_path}")
-
-    with open(config_path, 'r') as file:
-        config = json.load(file)
-    
-    # Validate config
-    required_keys = ["chunk_size", "chunk_overlap", "sqlite_db_path", "faiss_index_path", "embedding_model"]
-    for key in required_keys:
-        if key not in config:
-            raise ValueError(f"Missing required configuration key: {key}")
-
-    return config
 
 def ensure_directories():
     """
@@ -45,7 +21,6 @@ def main():
     Main entry point for the application.
     """
     parser = argparse.ArgumentParser(description="EmbedExplorer")
-    parser.add_argument('--config', type=str, default='vector_db/config.json', help='Path to the configuration file')
     parser.add_argument('--log', type=str, default='info', help='Logging level (debug, info, warning, error, critical)')
     args = parser.parse_args()
 
@@ -55,9 +30,8 @@ def main():
     try:
         ensure_directories()  # Ensure necessary directories exist
 
-        config = load_config(args.config)
-        vector_db = VectorDatabase(config)
-        doc_processor = DocumentProcessor(config, vector_db)
+        vector_db = VectorDatabase()
+        doc_processor = DocumentProcessor(vector_db)
 
         knowledge_path = 'knowledge/text_documents'
         for file_name in os.listdir(knowledge_path):

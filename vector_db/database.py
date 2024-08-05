@@ -4,28 +4,38 @@ import faiss
 import numpy as np
 import pickle
 import logging
+from config import Config
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 class VectorDatabase:
     """
     Class for managing the SQLite and FAISS database operations.
     """
 
-    def __init__(self, config):
+    def __init__(self, config=None):
         """
         Initialize the VectorDatabase class.
 
         Args:
-            config (dict): Configuration dictionary.
+            config (dict or Config): Configuration dictionary or Config object. If not provided, defaults to Config.
         """
-        self.config = config
-        self.dimension = 384  # Update this to match the SBERT model's embedding dimension
+        if config is None:
+            config = Config
+        elif isinstance(config, dict):
+            # Allow dict-like access for dictionary config
+            config = type('Config', (object,), config)
+
+        self.dimension = config.EMBEDDING_DIMENSION  # Dimension of the embeddings used
         self.conn = None
         self.cursor = None
         self.id_to_index = {}
         self.index_to_id_map = {}
+        self.sqlite_db_path = config.SQLITE_DB_PATH
+        self.faiss_index_path = config.FAISS_INDEX_PATH
+        self.index = None  # Initialize self.index here
         self.setup_sqlite()
         self.setup_faiss()
         self.load_mappings()
@@ -35,7 +45,7 @@ class VectorDatabase:
         Set up the SQLite database connection and cursor.
         """
         try:
-            self.conn = sqlite3.connect(self.config["sqlite_db_path"])
+            self.conn = sqlite3.connect(self.sqlite_db_path)
             self.cursor = self.conn.cursor()
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS documents (
@@ -55,12 +65,12 @@ class VectorDatabase:
         Set up the FAISS index.
         """
         try:
-            if os.path.exists(self.config["faiss_index_path"]):
-                self.index = faiss.read_index(self.config["faiss_index_path"])
+            if os.path.exists(self.faiss_index_path):
+                self.index = faiss.read_index(self.faiss_index_path)
                 if self.index.d != self.dimension:
                     logging.warning("Existing FAISS index dimension does not match. Reinitializing index.")
                     self.index = faiss.IndexFlatL2(self.dimension)
-                    faiss.write_index(self.index, self.config["faiss_index_path"])
+                    faiss.write_index(self.index, self.faiss_index_path)
             else:
                 self.index = faiss.IndexFlatL2(self.dimension)
             logging.info("FAISS setup complete.")
@@ -76,7 +86,7 @@ class VectorDatabase:
             self.cursor.execute("DELETE FROM documents")
             self.conn.commit()
             self.index.reset()
-            faiss.write_index(self.index, self.config["faiss_index_path"])
+            faiss.write_index(self.index, self.faiss_index_path)
             self.id_to_index.clear()
             self.index_to_id_map.clear()
             self.save_mappings()
@@ -97,14 +107,15 @@ class VectorDatabase:
             embeddings_array = np.array(embeddings).astype(np.float32)
             if embeddings_array.ndim == 1:
                 embeddings_array = embeddings_array.reshape(1, -1)
-            assert embeddings_array.shape[1] == self.dimension, f"Embedding dimension mismatch: {embeddings_array.shape[1]} != {self.dimension}"
+            assert embeddings_array.shape[1] == self.dimension, \
+                f"Embedding dimension mismatch: {embeddings_array.shape[1]} != {self.dimension}"
             start_index = self.index.ntotal
             self.index.add(embeddings_array)
             for i in range(embeddings_array.shape[0]):
                 index = start_index + i
                 self.id_to_index[document_id] = index
                 self.index_to_id_map[index] = document_id
-            faiss.write_index(self.index, self.config["faiss_index_path"])
+            faiss.write_index(self.index, self.faiss_index_path)
             self.save_mappings()
             logging.info(f"Embeddings for document {document_id} stored.")
         except Exception as e:
@@ -139,7 +150,8 @@ class VectorDatabase:
         """
         try:
             if not self.is_document_processed(document_id):
-                self.cursor.execute("INSERT INTO documents (id, file_path, status) VALUES (?, ?, ?)", (document_id, file_path, 'processed'))
+                self.cursor.execute("INSERT INTO documents (id, file_path, status) VALUES (?, ?, ?)",
+                                    (document_id, file_path, 'processed'))
                 self.conn.commit()
                 logging.info(f"Document {document_id} marked as processed.")
         except sqlite3.Error as e:
@@ -246,7 +258,7 @@ class VectorDatabase:
         Save the index-to-ID mappings to a file.
         """
         try:
-            with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'wb') as f:
+            with open(self.sqlite_db_path + '_mappings.pkl', 'wb') as f:
                 pickle.dump((self.id_to_index, self.index_to_id_map), f)
             logging.info("Saved index-to-ID mappings.")
         except Exception as e:
@@ -258,8 +270,8 @@ class VectorDatabase:
         Load the index-to-ID mappings from a file.
         """
         try:
-            if os.path.exists(self.config["sqlite_db_path"] + '_mappings.pkl'):
-                with open(self.config["sqlite_db_path"] + '_mappings.pkl', 'rb') as f:
+            if os.path.exists(self.sqlite_db_path + '_mappings.pkl'):
+                with open(self.sqlite_db_path + '_mappings.pkl', 'rb') as f:
                     self.id_to_index, self.index_to_id_map = pickle.load(f)
                 logging.info("Loaded index-to-ID mappings.")
         except Exception as e:

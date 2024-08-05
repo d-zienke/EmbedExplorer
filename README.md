@@ -17,38 +17,31 @@ EmbedExplorer is a Python application for processing text documents, generating 
 EmbedExplorer/
 │
 ├── vector_db/
-│ ├── init.py
-│ ├── config.json
-│ ├── database.py
-│ └── document_processor.py
+│   ├── __init__.py
+│   ├── database.py
+│   └── document_processor.py
 │
 ├── chatbot/
-│ ├── __init__.py
-│ ├── config.json
-│ ├── model_handler.py
-│ ├── query_handler.py
-│ └── response_generator.py
+│   ├── __init__.py
+│   ├── model_handler.py
+│   ├── query_handler.py
+│   └── response_generator.py
 │
 ├── knowledge/
-│ └── text_documents/ # Place your text documents here
+│   └── text_documents/ # Place your text documents here
 │
 ├── database/ # Local database files
 │
 ├── tests/
-│ └── test_database.py # Unit tests
+│   └── test_database.py # Unit tests
 │
+├── config.py # Global configuration
 ├── main.py # Main entry point
-│
 ├── chatbot_example.py
-│
 ├── example_query.py
-│
 ├── process_documents.py
-│
 ├── .env # for secrets
-│
 ├── venv # virtual environment
-│
 └── requirements.txt # Dependencies
 ```
 
