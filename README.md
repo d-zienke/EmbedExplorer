@@ -1,15 +1,16 @@
 # EmbedExplorer
 
-EmbedExplorer is a Python application for processing text documents, generating embeddings using the Ollama embedding model, and storing them in a local vector database. The project uses SQLite for metadata storage and FAISS for vector storage. The entire process runs locally and offline.
+EmbedExplorer is a Python application for processing text documents, generating embeddings using the all-MiniLM-L6-v2 model from Sentence Transformers, and storing them in a local vector database. The project uses SQLite for metadata storage and FAISS for vector storage. The entire process runs locally and offline for document processing, but it uses the OpenAI GPT model for real-time chatbot responses.
 
 ## Features
 
 - Extracts text from PDF, TXT, and Markdown files.
 - Chunks text into smaller segments.
-- Generates embeddings using the `mxbai-embed-large` model from Ollama.
+- Generates embeddings using the all-MiniLM-L6-v2 model.
 - Stores embeddings in a local FAISS vector database.
 - Manages document metadata in a local SQLite database.
 - Supports CRUD operations on the document metadata.
+- Provides a real-time chatbot that can answer queries based on the embedded documents using OpenAI GPT.
 
 ## Project Structure
 
@@ -36,12 +37,10 @@ EmbedExplorer/
 │   └── test_database.py # Unit tests
 │
 ├── config.py # Global configuration
-├── main.py # Main entry point
-├── chatbot_example.py
-├── example_query.py
-├── process_documents.py
-├── .env # for secrets
-├── venv # virtual environment
+├── main.py # Main entry point for document processing
+├── start_chatbot.py # Integrated chatbot and query example
+├── .env # Environment variables for secrets
+├── venv # Virtual environment
 └── requirements.txt # Dependencies
 ```
 
@@ -50,7 +49,7 @@ EmbedExplorer/
 1. **Clone the repository**:
 
    ```sh
-   git clone <repository_url>
+   git clone https://github.com/d-zienke/EmbedExplorer.git
    cd EmbedExplorer
    ```
 
@@ -58,7 +57,7 @@ EmbedExplorer/
 
    ```sh
    python -m venv venv
-   venv/Scripts/activate
+   venv\Scripts\activate
    ```
 
 3. **Install dependencies**:
@@ -80,41 +79,49 @@ OPENAI_API_KEY="your_openai_token_here"
 
 ## Configuration
 
-Edit the `config.json` file in the `vector_db/` directory to configure chunk size, overlap size, and paths for the SQLite and FAISS databases.
+Edit the `config.py` file to configure the chunk size, overlap size, paths for the SQLite and FAISS databases, and model settings
 
-```json
-{
-	"chunk_size": 300,
-	"chunk_overlap": 50,
-	"sqlite_db_path": "database/metadata.db",
-	"faiss_index_path": "database/faiss.index",
-	"embedding_model": "mxbai-embed-large"
-}
-```
+```py
+import os
+from dotenv import load_dotenv
 
-Edit the config.json file in the chatbot/ directory to configure model names and other settings.
+# Load environment variables from .env file
+load_dotenv()
 
-**Note:** Change the "model_type" to **"llama"** if you want to use Llama-3-8B
+class Config:
+    # General settings
+    CHUNK_SIZE = 300
+    CHUNK_OVERLAP = 50
+    EMBEDDING_MODEL = "sentence-transformers/all-MiniLM-L6-v2"
+    SQLITE_DB_PATH = "database/metadata.db"
+    FAISS_INDEX_PATH = "database/faiss.index"
+    EMBEDDING_DIMENSION = 384  # Dimension of the embeddings used
 
-```json
-{
-	"model_type": "gpt-4o-mini",
-	"llama_model_name": "meta-llama/Meta-Llama-3-8B",
-	"sbert_model_name": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-	"gpt4_model_name": "gpt-4o-mini",
-	"openai_api_key": "your_openai_api_key",
-	"temperature": 0.7,
-	"max_tokens": 300,
-	"top_p": 0.9,
-	"frequency_penalty": 0.2,
-	"presence_penalty": 0.2,
-	"system_prompt": "You are a knowledgeable assistant. Your primary function is to provide information strictly based on the embedded documents. When answering queries, ensure your responses are concise and directly related to the content of the documents. If possible, always include the title of the source document in your response to indicate the origin of the information. If a query cannot be answered from the documents, state that explicitly. If a query requests general information or opinions, make it clear that your primary function is to provide information based on the embedded documents."
-}
+    # Chatbot settings
+    MODEL_TYPE = "gpt-4o-mini"
+    LLAMA_MODEL_NAME = "meta-llama/Meta-Llama-3-8B"
+    GPT4_MODEL_NAME = "gpt-4o-mini"
+    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    TEMPERATURE = 0.7
+    MAX_TOKENS = 300
+    TOP_P = 0.9
+    FREQUENCY_PENALTY = 0.2
+    PRESENCE_PENALTY = 0.2
+    SYSTEM_PROMPT = (
+        "You are a knowledgeable assistant. Your primary function is to provide "
+        "information strictly based on the embedded documents. When answering queries, "
+        "ensure your responses are concise and directly related to the content of the "
+        "documents. If possible, always include the title of the source document in your "
+        "response to indicate the origin of the information. If a query cannot be answered "
+        "from the documents, state that explicitly. If a query requests general information or opinions, make "
+        "it clear that your primary function is to provide information based on the embedded documents."
+    )
+
 ```
 
 ## Usage
 
-1. Place your text documents in the knowledge/text_documents/ directory.
+1. Place your text documents in the `knowledge/text_documents/` directory.
 2. Run the main application:
 
    ```sh
@@ -123,9 +130,17 @@ Edit the config.json file in the chatbot/ directory to configure model names and
 
    The application will automatically create the necessary directories (`database` and `knowledge/text_documents`) if they don't exist.
 
-3. View stored documents:
+3. Run the chatbot:
 
-   The processed documents and their embeddings will be stored in the local database.
+   ```sh
+   python start_chatbot.py --mode chatbot
+   ```
+
+4. Test the query mechanism:
+
+   ```sh
+   python start_chatbot.py --mode test
+   ```
 
 ## Running Tests
 
@@ -155,7 +170,7 @@ Handles document retrieval based on query embeddings.
 
 ### `chatbot/response_generator.py`
 
-Generates chatbot responses using the LLaMA model.
+Generates chatbot responses using the LLaMA model and OpenAI GPT-4o-mini model.
 
 ### `tests/test_database.py`
 
@@ -164,6 +179,10 @@ Contains unit tests for the VectorDatabase class.
 ### `main.py`
 
 The main entry point of the application. Processes all documents in the knowledge/text_documents/ directory.
+
+### `start_chatbot.py`
+
+Integrates the chatbot functionality and provides a mechanism to test the query.
 
 ## Contributing
 
