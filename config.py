@@ -4,7 +4,6 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-
 class Config:
     # General settings
     CHUNK_SIZE = 300
@@ -15,9 +14,8 @@ class Config:
     EMBEDDING_DIMENSION = 384  # Dimension of the embeddings used
 
     # Chatbot settings
-    MODEL_TYPE = "gpt-4o-mini"
-    LLAMA_MODEL_NAME = "meta-llama/Meta-Llama-3-8B"
-    GPT4_MODEL_NAME = "gpt-4o-mini"
+    MODEL_TYPE = "gpt-4o"
+    GPT4_MODEL_NAME = "gpt-4o-2024-08-06"
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
     TEMPERATURE = 0.7
     MAX_TOKENS = 300

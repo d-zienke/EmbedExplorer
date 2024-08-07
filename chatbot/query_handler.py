@@ -17,7 +17,7 @@ class QueryHandler:
 
     def generate_query_embedding(self, query_text):
         """
-        Generate an embedding for the query text using SBERT Multilingual.
+        Generate an embedding for the query text using the embedding model.
         Args:
             query_text (str): The query text.
         Returns:
@@ -30,11 +30,12 @@ class QueryHandler:
         Retrieve the most relevant documents for the given query text.
         Args:
             query_text (str): Query text to search for.
+            top_k (int): Number of top relevant documents to retrieve.
         Returns:
             list: Metadata of the top relevant documents.
         """
         query_vector = self.generate_query_embedding(query_text)
-        logging.info(f"Query vector generated.")
+        logging.info("Query vector generated.")
         top_indices = self.vector_db.query_embeddings(query_vector, top_k=top_k)
         logging.info(f"Top indices from FAISS query: {top_indices}")
         document_ids = [self.vector_db.index_to_id(idx) for idx in top_indices]
@@ -43,7 +44,8 @@ class QueryHandler:
         logging.info(f"Metadata retrieved: {metadata}")
         return metadata
 
-    def read_document(self, file_path):
+    @staticmethod
+    def read_document(file_path):
         """
         Read the contents of a document from the specified file path.
         Args:
@@ -53,25 +55,28 @@ class QueryHandler:
         """
         ext = os.path.splitext(file_path)[-1].lower()
         if ext == ".pdf":
-            return self.extract_text_from_pdf(file_path)
+            return QueryHandler.extract_text_from_pdf(file_path)
         elif ext == ".txt":
-            return self.extract_text_from_txt(file_path)
+            return QueryHandler.extract_text_from_txt(file_path)
         elif ext == ".md":
-            return self.extract_text_from_markdown(file_path)
+            return QueryHandler.extract_text_from_markdown(file_path)
         else:
             raise ValueError("Unsupported file type")
 
-    def extract_text_from_pdf(self, file_path):
+    @staticmethod
+    def extract_text_from_pdf(file_path):
         with open(file_path, 'rb') as file:
             reader = PdfReader(file)
             text = "".join([page.extract_text() for page in reader.pages])
         return text
 
-    def extract_text_from_txt(self, file_path):
+    @staticmethod
+    def extract_text_from_txt(file_path):
         with open(file_path, 'r', encoding='utf-8') as file:
             return file.read()
 
-    def extract_text_from_markdown(self, file_path):
+    @staticmethod
+    def extract_text_from_markdown(file_path):
         with open(file_path, 'r', encoding='utf-8') as file:
             md = file.read()
         html = markdown.markdown(md)
