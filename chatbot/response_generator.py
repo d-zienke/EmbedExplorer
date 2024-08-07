@@ -4,8 +4,7 @@ from chatbot.query_handler import QueryHandler
 from config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname=s - %(message)s')
 
 class ResponseGenerator:
     def __init__(self):
@@ -13,7 +12,7 @@ class ResponseGenerator:
 
     def generate_responses(self, prompts, system_prompt=None):
         """
-        Generate responses using the Llama model in parallel.
+        Generate responses using the GPT-4o model in parallel.
         Args:
             prompts (list): List of prompts to generate responses for.
             system_prompt (str): System prompt to guide the model.
@@ -22,8 +21,8 @@ class ResponseGenerator:
         """
         with ThreadPoolExecutor() as executor:
             responses = list(
-                executor.map(lambda prompt: self.query_handler.model_handler.generate_response(prompt, system_prompt),
-                             prompts))
+                executor.map(lambda prompt: self.query_handler.model_handler.generate_response(prompt, system_prompt), prompts)
+            )
         return responses
 
     def generate_chatbot_response(self, query_text, metadata):

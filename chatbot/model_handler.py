@@ -1,6 +1,5 @@
 from sentence_transformers import SentenceTransformer
-from transformers import AutoModelForCausalLM, AutoTokenizer
-import openai
+from openai import OpenAI
 import os
 from config import Config
 
@@ -15,11 +14,8 @@ class ModelHandler:
         self.model_type = Config.MODEL_TYPE
         self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
 
-        if self.model_type == 'gpt-4o-mini':
-            self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
-        elif self.model_type == 'llama':
-            self.tokenizer = AutoTokenizer.from_pretrained(Config.LLAMA_MODEL_NAME, token=os.getenv('HUGGINGFACE_TOKEN'))
-            self.model = AutoModelForCausalLM.from_pretrained(Config.LLAMA_MODEL_NAME, token=os.getenv('HUGGINGFACE_TOKEN'))
+        if self.model_type == 'gpt-4o':
+            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         else:
             raise ValueError("Unsupported model type specified in config")
 
@@ -42,7 +38,7 @@ class ModelHandler:
         Returns:
             str: Generated response.
         """
-        if self.model_type == 'gpt-4o-mini':
+        if self.model_type == 'gpt-4o':
             messages = [
                 {"role": "system", "content": system_prompt or Config.SYSTEM_PROMPT},
                 {"role": "user", "content": prompt}
@@ -57,7 +53,3 @@ class ModelHandler:
                 presence_penalty=Config.PRESENCE_PENALTY
             )
             return response.choices[0].message.content
-        elif self.model_type == 'llama':
-            inputs = self.tokenizer(prompt, return_tensors="pt")
-            outputs = self.model.generate(**inputs)
-            return self.tokenizer.decode(outputs[0], skip_special_tokens=True)
