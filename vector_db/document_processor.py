@@ -79,6 +79,22 @@ class DocumentProcessor:
         return text
 
     @staticmethod
+    def extract_title(text):
+        """
+        Extract the title from the text.
+
+        Args:
+            text (str): Text from which to extract the title.
+
+        Returns:
+            str: Extracted title.
+        """
+        # Simple title extraction: use the first line as the title
+        title = text.splitlines()[0].strip()
+        logging.info(f"Extracted title: {title}")
+        return title
+
+    @staticmethod
     def chunk_text(text):
         """
         Chunk the text into smaller segments.
@@ -129,9 +145,10 @@ class DocumentProcessor:
             raise ValueError("Unsupported file type")
 
         document_id = hashlib.md5(text.encode('utf-8')).hexdigest()
+        title = self.extract_title(text)
         if not self.vector_db.is_document_processed(document_id):
             text_chunks = self.chunk_text(text)
             embeddings = self.generate_embeddings(text_chunks)
-            self.vector_db.store_embeddings(document_id, embeddings)
-            self.vector_db.mark_document_as_processed(document_id, file_path)
-            logging.info(f"Processed document {file_path} and stored embeddings.")
+            self.vector_db.store_embeddings(document_id, title, embeddings)
+            self.vector_db.mark_document_as_processed(document_id, title, file_path)
+            logging.info(f"Processed document {file_path} with title '{title}' and stored embeddings.")

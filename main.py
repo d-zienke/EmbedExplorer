@@ -6,7 +6,7 @@ from vector_db.document_processor import DocumentProcessor
 from config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 def ensure_directories():
     """
@@ -27,6 +27,8 @@ def main():
     logging_level = getattr(logging, args.log.upper(), logging.INFO)
     logging.getLogger().setLevel(logging_level)
 
+    vector_db = None  # Initialize the variable at the start
+
     try:
         ensure_directories()  # Ensure necessary directories exist
 
@@ -46,7 +48,8 @@ def main():
     except Exception as e:
         logging.critical(f"Critical error in main execution: {e}")
     finally:
-        vector_db.close()
+        if vector_db:
+            vector_db.close()
 
 if __name__ == "__main__":
     main()

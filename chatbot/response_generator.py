@@ -34,7 +34,7 @@ class ResponseGenerator:
         Returns:
             str: Formatted chatbot response.
         """
-        file_paths = [file_path for _, file_path in metadata]
+        file_paths = [file_path for _, _, file_path in metadata]
         contents = self.query_handler.read_documents_in_parallel(file_paths)
 
         prompts = [
@@ -47,7 +47,7 @@ class ResponseGenerator:
         # Filter responses to only include those with relevant information
         filtered_responses = [
             (doc_id, file_path, response)
-            for (doc_id, file_path), response in zip(metadata, responses)
+            for (doc_id, _, file_path), response in zip(metadata, responses)
             if "does not provide information" not in response
         ]
 
@@ -71,9 +71,20 @@ class ResponseGenerator:
         Returns:
             str: The generated response.
         """
+        # Normalize the query text for easier comparison
+        query_text_lower = query_text.lower().strip()
+
+        # Check if the user is asking to list document titles
+        if query_text_lower in ["list documents", "show documents", "what documents do you have", "list all document titles"]:
+            titles = self.query_handler.list_document_titles()
+            if not titles:
+                return "No documents found in the database."
+            return "Here are the available documents:\n" + "\n".join(titles)
+
+        # Existing logic for content-based queries
         keywords = ["information", "details", "document", "explain", "describe"]
 
-        if any(keyword in query_text.lower() for keyword in keywords):
+        if any(keyword in query_text_lower for keyword in keywords):
             metadata = self.query_handler.retrieve_relevant_documents(query_text)
             response = self.generate_chatbot_response(query_text, metadata)
         else:
