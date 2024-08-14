@@ -1,4 +1,5 @@
 import logging
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from chatbot.query_handler import QueryHandler
 from config import Config
@@ -7,23 +8,36 @@ from config import Config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class ResponseGenerator:
-    def __init__(self):
+    def __init__(self, context_window_size=5):
         self.query_handler = QueryHandler()
+        self.context_window_size = context_window_size
+        self.session_id = str(uuid.uuid4())  # Unique identifier for the session
+
+    def add_to_context(self, user_prompt, chatbot_response):
+        """
+        Add a user prompt and corresponding chatbot response to the context.
+        Also stores the interaction in the database.
+        """
+        self.query_handler.vector_db.add_conversation_entry(
+            self.session_id, user_prompt, chatbot_response
+        )
 
     def generate_responses(self, prompts, system_prompt=None):
         """
-        Generate responses using the GPT-4o model in parallel.
-        Args:
-            prompts (list): List of prompts to generate responses for.
-            system_prompt (str): System prompt to guide the model.
-        Returns:
-            list: List of generated responses.
+        Generate responses using the GPT-4o model, incorporating context.
         """
-        with ThreadPoolExecutor() as executor:
-            responses = list(
-                executor.map(lambda prompt: self.query_handler.model_handler.generate_response(prompt, system_prompt), prompts)
-            )
-        return responses
+        # Retrieve recent conversation context
+        recent_conversation = self.query_handler.vector_db.get_recent_conversation(
+            self.session_id, limit=self.context_window_size
+        )
+        context_str = "\n".join([f"User: {user}\nBot: {bot}" for user, bot in recent_conversation])
+
+        # Integrate context into the prompt
+        full_prompt = f"{context_str}\nUser: {prompts[-1]}"
+
+        response = self.query_handler.model_handler.generate_response(full_prompt, system_prompt)
+        self.query_handler.vector_db.add_conversation_entry(self.session_id, prompts[-1], response)
+        return [response]
 
     def generate_chatbot_response(self, query_text, metadata):
         """
@@ -65,29 +79,61 @@ class ResponseGenerator:
 
     def decide_response(self, query_text):
         """
-        Decide whether to query the database or generate a natural conversation response.
-        Args:
-            query_text (str): The query text.
-        Returns:
-            str: The generated response.
+        Decide the response based on recognized intent or default behavior.
         """
-        # Normalize the query text for easier comparison
-        query_text_lower = query_text.lower().strip()
-
-        # Check if the user is asking to list document titles
-        if query_text_lower in ["list documents", "show documents", "what documents do you have", "list all document titles"]:
-            titles = self.query_handler.list_document_titles()
-            if not titles:
-                return "No documents found in the database."
-            return "Here are the available documents:\n" + "\n".join(titles)
+        action_response = self.query_handler.decide_action(query_text)
+        if action_response:
+            return action_response
 
         # Existing logic for content-based queries
-        keywords = ["information", "details", "document", "explain", "describe"]
+        metadata = self.query_handler.retrieve_relevant_documents(query_text)
+        response = self.generate_chatbot_response(query_text, metadata)
 
-        if any(keyword in query_text_lower for keyword in keywords):
-            metadata = self.query_handler.retrieve_relevant_documents(query_text)
-            response = self.generate_chatbot_response(query_text, metadata)
-        else:
-            response = self.query_handler.model_handler.generate_response(query_text)
+        # Add the current interaction to the context
+        self.add_to_context(query_text, response)
 
         return response
+
+    def generate_parallel_responses(self, prompts, system_prompt=None):
+        """
+        Generate responses in parallel for multiple prompts.
+        Args:
+            prompts (list): List of prompts to generate responses for.
+            system_prompt (str): System prompt to guide the model.
+        Returns:
+            list: List of generated responses.
+        """
+        with ThreadPoolExecutor() as executor:
+            responses = list(
+                executor.map(lambda prompt: self.query_handler.model_handler.generate_response(prompt, system_prompt), prompts)
+            )
+        return responses
+
+    def reset_context(self):
+        """
+        Reset the conversation context for the current session.
+        """
+        self.query_handler.vector_db.clear_conversation(self.session_id)
+        return "Conversation context has been reset."
+
+    def list_documents(self):
+        """
+        List all available documents in the vector database.
+        Returns:
+            str: Formatted list of document titles.
+        """
+        titles = self.query_handler.list_document_titles()
+        if not titles:
+            return "No documents found in the database."
+        return "Here are the available documents:\n" + "\n".join(titles)
+
+    def retrieve_context(self):
+        """
+        Retrieve the current conversation context for the session.
+        Returns:
+            str: The context as a formatted string.
+        """
+        recent_conversation = self.query_handler.vector_db.get_recent_conversation(
+            self.session_id, limit=self.context_window_size
+        )
+        return "\n".join([f"User: {user}\nBot: {bot}" for user, bot in recent_conversation])

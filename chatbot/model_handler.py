@@ -1,7 +1,7 @@
-from sentence_transformers import SentenceTransformer
 import openai
 import os
 import logging
+from sentence_transformers import SentenceTransformer
 from config import Config
 
 class ModelHandler:
@@ -16,7 +16,8 @@ class ModelHandler:
         self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
 
         if self.model_type == 'gpt-4o':
-            self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            self.client = openai
+            openai.api_key = os.getenv("OPENAI_API_KEY")
         else:
             raise ValueError("Unsupported model type specified in config")
 
@@ -54,7 +55,36 @@ class ModelHandler:
                     frequency_penalty=Config.FREQUENCY_PENALTY,
                     presence_penalty=Config.PRESENCE_PENALTY
                 )
-                return response.choices[0].message.content
-        except openai.error.OpenAIError as e:
+                return response.choices[0].message['content']
+        except Exception as e:
             logging.error(f"An error occurred while communicating with OpenAI: {e}")
             return "Sorry, I'm unable to generate a response at the moment. Please try again later."
+
+    def recognize_intent_with_gpt(self, query_text):
+        """
+        Use GPT to recognize intent.
+        Args:
+            query_text (str): The user's query text.
+        Returns:
+            str: Recognized intent.
+        """
+        try:
+            messages = [
+                {"role": "system", "content": Config.GPT_INTENT_SYSTEM_PROMPT},
+                {"role": "user", "content": query_text}
+            ]
+            response = self.client.chat.completions.create(
+                model=Config.GPT4_MODEL_NAME,
+                messages=messages,
+                temperature=Config.TEMPERATURE,
+                max_tokens=Config.MAX_TOKENS,
+                top_p=Config.TOP_P,
+                frequency_penalty=Config.FREQUENCY_PENALTY,
+                presence_penalty=Config.PRESENCE_PENALTY
+            )
+            intent = response.choices[0].message['content'].strip().lower()
+            logging.info(f"GPT recognized intent: {intent}")
+            return intent, 1.0
+        except Exception as e:
+            logging.error(f"An error occurred while recognizing intent: {e}")
+            return None, 0.0

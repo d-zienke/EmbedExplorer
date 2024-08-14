@@ -32,3 +32,12 @@ class Config:
         "or a different source. If a query requests general information or opinions, make "
         "it clear that your primary function is to provide information based on the embedded documents."
     )
+
+    # Intent recognition settings
+    INTENT_RECOGNITION_THRESHOLD = 0.3
+    GPT_INTENT_SYSTEM_PROMPT = (
+        "You are an AI specialized in understanding and categorizing user intents based on the text provided. "
+        "Your task is to analyze the user's input and determine the most appropriate intent from the following list: "
+        "general_info, list_documents, content_specific_query. "
+        "Please respond with only the name of the most relevant intent."
+    )

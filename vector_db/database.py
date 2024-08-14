@@ -7,7 +7,7 @@ import logging
 from config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')  # No issues here
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class VectorDatabase:
     """
@@ -34,9 +34,9 @@ class VectorDatabase:
         self.sqlite_db_path = config.SQLITE_DB_PATH
         self.faiss_index_path = config.FAISS_INDEX_PATH
         self.index = None
-        self.setup_sqlite()  # These calls should be fine
-        self.setup_faiss()   # No issues expected here
-        self.load_mappings() # Syntax is correct here as well
+        self.setup_sqlite()
+        self.setup_faiss()
+        self.load_mappings()
 
     def setup_sqlite(self):
         """
@@ -45,13 +45,22 @@ class VectorDatabase:
         try:
             self.conn = sqlite3.connect(self.sqlite_db_path)
             self.cursor = self.conn.cursor()
-            # Updated schema to include a title column
+            # Updated schema to include a title column and a conversations table
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS documents (
                     id TEXT PRIMARY KEY,
                     title TEXT,
                     file_path TEXT,
                     status TEXT
+                )
+            ''')
+            self.cursor.execute('''
+                CREATE TABLE IF NOT EXISTS conversations (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    session_id TEXT,
+                    user_prompt TEXT,
+                    chatbot_response TEXT,
+                    timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
                 )
             ''')
             self.conn.commit()
@@ -278,4 +287,66 @@ class VectorDatabase:
                 logging.info("Loaded index-to-ID mappings.")
         except Exception as e:
             logging.error(f"Error loading mappings: {e}")
+            raise
+
+    def add_conversation_entry(self, session_id, user_prompt, chatbot_response):
+        """
+        Add a new conversation entry to the database.
+
+        Args:
+            session_id (str): Unique identifier for the session.
+            user_prompt (str): The user's input.
+            chatbot_response (str): The chatbot's response.
+        """
+        try:
+            self.cursor.execute('''
+                INSERT INTO conversations (session_id, user_prompt, chatbot_response)
+                VALUES (?, ?, ?)
+            ''', (session_id, user_prompt, chatbot_response))
+            self.conn.commit()
+            logging.info("Conversation entry added to database.")
+        except sqlite3.Error as e:
+            logging.error(f"Error adding conversation entry: {e}")
+            raise
+
+    def get_recent_conversation(self, session_id, limit=5):
+        """
+        Retrieve the most recent conversation entries for a given session.
+
+        Args:
+            session_id (str): Unique identifier for the session.
+            limit (int): The number of recent entries to retrieve.
+
+        Returns:
+            list: List of tuples containing user prompts and chatbot responses.
+        """
+        try:
+            self.cursor.execute('''
+                SELECT user_prompt, chatbot_response FROM conversations
+                WHERE session_id = ?
+                ORDER BY timestamp DESC
+                LIMIT ?
+            ''', (session_id, limit))
+            results = self.cursor.fetchall()
+            logging.info(f"Retrieved {len(results)} recent conversation entries for session {session_id}.")
+            return results[::-1]  # Return in chronological order
+        except sqlite3.Error as e:
+            logging.error(f"Error retrieving recent conversation: {e}")
+            raise
+
+    def clear_conversation(self, session_id):
+        """
+        Clear the conversation history for a given session.
+
+        Args:
+            session_id (str): Unique identifier for the session.
+        """
+        try:
+            self.cursor.execute('''
+                DELETE FROM conversations WHERE session_id = ?
+            ''', (session_id,))
+            self.conn.commit()
+            logging.info(f"Conversation history cleared for session {session_id}.")
+        except sqlite3.Error as e:
+            logging.error(f"Error clearing conversation history: {e}")
             raise
