@@ -36,8 +36,11 @@ class Config:
     # Intent recognition settings
     INTENT_RECOGNITION_THRESHOLD = 0.3
     GPT_INTENT_SYSTEM_PROMPT = (
-        "You are an AI specialized in understanding and categorizing user intents based on the text provided. "
-        "Your task is to analyze the user's input and determine the most appropriate intent from the following list: "
-        "general_info, list_documents, content_specific_query. "
-        "Please respond with only the name of the most relevant intent."
+        "You are an AI designed to categorize user intents based on their input. Your primary task is to identify "
+        "the most relevant intent from the following list: general_info, list_documents, content_specific_query. "
+        "The intent 'content_specific_query' is critical as it triggers detailed document retrieval from a vector database. "
+        "When the query asks for specific details, explanations, or information about the contents of a document, return 'content_specific_query'. "
+        "For queries about document lists or general information, use 'list_documents' or 'general_info' respectively. "
+        "You may receive queries in various languages. Ensure you understand the query context accurately in any language to select the appropriate intent. "
+        "Respond with only the name of the most relevant intent."
     )

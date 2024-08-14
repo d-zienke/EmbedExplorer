@@ -26,40 +26,40 @@ class QueryHandler:
             str: Recognized intent (e.g., "list_documents", "reset_context").
         """
         # Check for immediate keywords or patterns
-        immediate_intent = self.preliminary_intent_filter(query_text)
-        if immediate_intent:
-            return immediate_intent
+        # immediate_intent = self.preliminary_intent_filter(query_text)
+        # if immediate_intent:
+        #     return immediate_intent
 
         # Otherwise, use GPT-based analysis
-        gpt_intent, confidence_score = self.model_handler.recognize_intent_with_gpt(query_text)
-        if gpt_intent and confidence_score >= Config.INTENT_RECOGNITION_THRESHOLD:
+        gpt_intent = self.model_handler.recognize_intent_with_gpt(query_text)
+        if gpt_intent:
             return gpt_intent
 
         # If GPT analysis is inconclusive, fallback to embedding-based similarity
         return self.embedding_based_intent_recognition(query_text)
 
 
-    def preliminary_intent_filter(self, query_text):
-        """
-        Preliminary filter to check for specific keywords or patterns.
-        Args:
-            query_text (str): The user's query text.
-        Returns:
-            str or None: Recognized intent if a match is found, otherwise None.
-        """
-        keywords_to_intents = {
-            "what are you": "general_info",
-            "who are you": "general_info",
-            "list documents": "list_documents",
-            "show documents": "list_documents",
-            # Add more immediate keyword checks as needed
-        }
+    # def preliminary_intent_filter(self, query_text):
+    #     """
+    #     Preliminary filter to check for specific keywords or patterns.
+    #     Args:
+    #         query_text (str): The user's query text.
+    #     Returns:
+    #         str or None: Recognized intent if a match is found, otherwise None.
+    #     """
+    #     keywords_to_intents = {
+    #         "what are you": "general_info",
+    #         "who are you": "general_info",
+    #         "list documents": "list_documents",
+    #         "show documents": "list_documents",
+    #         # Add more immediate keyword checks as needed
+    #     }
 
-        query_lower = query_text.lower()
-        for keyword, intent in keywords_to_intents.items():
-            if keyword in query_lower:
-                return intent
-        return None
+    #     query_lower = query_text.lower()
+    #     for keyword, intent in keywords_to_intents.items():
+    #         if keyword in query_lower:
+    #             return intent
+    #     return None
 
     def embedding_based_intent_recognition(self, query_text):
         """
@@ -72,15 +72,22 @@ class QueryHandler:
         intents = {
             "list_documents": [
                 "list documents", "show documents", "what documents do you have", "list all document titles",
-                "display the documents you have", "what files are in the database"
+                "display the documents you have", "what files are in the database", "show me the documents", 
+                "give me a list of all documents", "what documents are available", "provide a list of document names",
+                "what documents are stored here", "list all the files"
             ],
             "general_info": [
                 "what are you", "who are you", "what can you do", "tell me about yourself",
-                "what is your function", "what services do you offer"
+                "what is your function", "what services do you offer", "what are your capabilities",
+                "how can you assist me", "what is your purpose", "what are your features",
+                "how do you work", "what can you help with", "what are your abilities"
             ],
             "content_specific_query": [
                 "explain this document", "give me details about", "describe the contents of",
-                "tell me about the document", "what's in the file", "what is in this document"
+                "tell me about the document", "what's in the file", "what is in this document",
+                "provide details about this file", "summarize the document", "what are the key points in this document",
+                "give me an overview of the document", "what information does this document contain",
+                "can you detail what's in this file", "tell me more about this document"
             ],
         }
 

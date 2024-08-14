@@ -55,7 +55,8 @@ class ModelHandler:
                     frequency_penalty=Config.FREQUENCY_PENALTY,
                     presence_penalty=Config.PRESENCE_PENALTY
                 )
-                return response.choices[0].message['content']
+                return response.choices[0].message.content
+                # return response.choices[0].message['content']
         except Exception as e:
             logging.error(f"An error occurred while communicating with OpenAI: {e}")
             return "Sorry, I'm unable to generate a response at the moment. Please try again later."
@@ -82,9 +83,9 @@ class ModelHandler:
                 frequency_penalty=Config.FREQUENCY_PENALTY,
                 presence_penalty=Config.PRESENCE_PENALTY
             )
-            intent = response.choices[0].message['content'].strip().lower()
+            intent = response.choices[0].message.content.strip().lower()
             logging.info(f"GPT recognized intent: {intent}")
-            return intent, 1.0
+            return intent
         except Exception as e:
             logging.error(f"An error occurred while recognizing intent: {e}")
-            return None, 0.0
+            return None
