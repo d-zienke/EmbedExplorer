@@ -7,8 +7,7 @@ import logging
 from config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')  # No issues here
 
 class VectorDatabase:
     """
@@ -25,20 +24,19 @@ class VectorDatabase:
         if config is None:
             config = Config
         elif isinstance(config, dict):
-            # Allow dict-like access for dictionary config
             config = type('Config', (object,), config)
 
-        self.dimension = config.EMBEDDING_DIMENSION  # Dimension of the embeddings used
+        self.dimension = config.EMBEDDING_DIMENSION
         self.conn = None
         self.cursor = None
         self.id_to_index = {}
         self.index_to_id_map = {}
         self.sqlite_db_path = config.SQLITE_DB_PATH
         self.faiss_index_path = config.FAISS_INDEX_PATH
-        self.index = None  # Initialize self.index here
-        self.setup_sqlite()
-        self.setup_faiss()
-        self.load_mappings()
+        self.index = None
+        self.setup_sqlite()  # These calls should be fine
+        self.setup_faiss()   # No issues expected here
+        self.load_mappings() # Syntax is correct here as well
 
     def setup_sqlite(self):
         """
@@ -47,9 +45,11 @@ class VectorDatabase:
         try:
             self.conn = sqlite3.connect(self.sqlite_db_path)
             self.cursor = self.conn.cursor()
+            # Updated schema to include a title column
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS documents (
                     id TEXT PRIMARY KEY,
+                    title TEXT,
                     file_path TEXT,
                     status TEXT
                 )
@@ -95,12 +95,13 @@ class VectorDatabase:
             logging.error(f"Error clearing database: {e}")
             raise
 
-    def store_embeddings(self, document_id, embeddings):
+    def store_embeddings(self, document_id, title, embeddings):
         """
         Store the embeddings in the FAISS index.
 
         Args:
             document_id (str): Document ID.
+            title (str): Document title.
             embeddings (list): List of embeddings.
         """
         try:
@@ -140,20 +141,21 @@ class VectorDatabase:
             logging.error(f"Error checking document {document_id}: {e}")
             raise
 
-    def mark_document_as_processed(self, document_id, file_path):
+    def mark_document_as_processed(self, document_id, title, file_path):
         """
         Mark the document as processed.
 
         Args:
             document_id (str): Document ID.
+            title (str): Document title.
             file_path (str): File path of the document.
         """
         try:
             if not self.is_document_processed(document_id):
-                self.cursor.execute("INSERT INTO documents (id, file_path, status) VALUES (?, ?, ?)",
-                                    (document_id, file_path, 'processed'))
+                self.cursor.execute("INSERT INTO documents (id, title, file_path, status) VALUES (?, ?, ?, ?)",
+                                    (document_id, title, file_path, 'processed'))
                 self.conn.commit()
-                logging.info(f"Document {document_id} marked as processed.")
+                logging.info(f"Document {document_id} titled '{title}' marked as processed.")
         except sqlite3.Error as e:
             logging.error(f"Error marking document {document_id} as processed: {e}")
             raise
@@ -163,10 +165,10 @@ class VectorDatabase:
         List all processed documents.
 
         Returns:
-            list: List of tuples containing document IDs and file paths.
+            list: List of tuples containing document IDs, titles, and file paths.
         """
         try:
-            self.cursor.execute("SELECT id, file_path FROM documents")
+            self.cursor.execute("SELECT id, title, file_path FROM documents")
             return self.cursor.fetchall()
         except sqlite3.Error as e:
             logging.error(f"Error listing documents: {e}")
@@ -229,11 +231,11 @@ class VectorDatabase:
             document_ids (list): List of document IDs.
 
         Returns:
-            list: List of tuples containing document IDs and file paths.
+            list: List of tuples containing document IDs, titles, and file paths.
         """
         try:
             placeholders = ', '.join('?' for _ in document_ids)
-            query = f"SELECT id, file_path FROM documents WHERE id IN ({placeholders})"
+            query = f"SELECT id, title, file_path FROM documents WHERE id IN ({placeholders})"
             self.cursor.execute(query, document_ids)
             logging.info(f"Retrieved metadata for document IDs: {document_ids}")
             return self.cursor.fetchall()

@@ -1,6 +1,7 @@
 from sentence_transformers import SentenceTransformer
-from openai import OpenAI
+import openai
 import os
+import logging
 from config import Config
 
 class ModelHandler:
@@ -15,7 +16,7 @@ class ModelHandler:
         self.embedding_model = SentenceTransformer(Config.EMBEDDING_MODEL)
 
         if self.model_type == 'gpt-4o':
-            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+            self.client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         else:
             raise ValueError("Unsupported model type specified in config")
 
@@ -38,18 +39,22 @@ class ModelHandler:
         Returns:
             str: Generated response.
         """
-        if self.model_type == 'gpt-4o':
-            messages = [
-                {"role": "system", "content": system_prompt or Config.SYSTEM_PROMPT},
-                {"role": "user", "content": prompt}
-            ]
-            response = self.client.chat.completions.create(
-                model=Config.GPT4_MODEL_NAME,
-                messages=messages,
-                temperature=Config.TEMPERATURE,
-                max_tokens=Config.MAX_TOKENS,
-                top_p=Config.TOP_P,
-                frequency_penalty=Config.FREQUENCY_PENALTY,
-                presence_penalty=Config.PRESENCE_PENALTY
-            )
-            return response.choices[0].message.content
+        try:
+            if self.model_type == 'gpt-4o':
+                messages = [
+                    {"role": "system", "content": system_prompt or Config.SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ]
+                response = self.client.chat.completions.create(
+                    model=Config.GPT4_MODEL_NAME,
+                    messages=messages,
+                    temperature=Config.TEMPERATURE,
+                    max_tokens=Config.MAX_TOKENS,
+                    top_p=Config.TOP_P,
+                    frequency_penalty=Config.FREQUENCY_PENALTY,
+                    presence_penalty=Config.PRESENCE_PENALTY
+                )
+                return response.choices[0].message.content
+        except openai.error.OpenAIError as e:
+            logging.error(f"An error occurred while communicating with OpenAI: {e}")
+            return "Sorry, I'm unable to generate a response at the moment. Please try again later."

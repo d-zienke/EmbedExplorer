@@ -8,7 +8,7 @@ from chatbot.model_handler import ModelHandler
 from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class QueryHandler:
     def __init__(self):
@@ -43,6 +43,18 @@ class QueryHandler:
         metadata = self.vector_db.get_document_metadata(document_ids)
         logging.info(f"Metadata retrieved: {metadata}")
         return metadata
+
+    def list_document_titles(self):
+        """
+        List all document titles stored in the vector database.
+        Returns:
+            list: List of document titles.
+        """
+        documents = self.vector_db.list_documents()
+        titles = [title for _, title, _ in documents]
+        logging.info(f"Retrieved document titles: {titles}")
+        return titles
+
 
     @staticmethod
     def read_document(file_path):
