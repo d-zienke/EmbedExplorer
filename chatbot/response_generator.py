@@ -4,7 +4,7 @@ from chatbot.query_handler import QueryHandler
 from config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname=s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class ResponseGenerator:
     def __init__(self):
@@ -71,7 +71,6 @@ class ResponseGenerator:
         Returns:
             str: The generated response.
         """
-        # Define keywords or conditions to decide when to query the database
         keywords = ["information", "details", "document", "explain", "describe"]
 
         if any(keyword in query_text.lower() for keyword in keywords):

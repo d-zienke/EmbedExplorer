@@ -9,8 +9,7 @@ import logging
 from config import Config
 
 # Configure logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
 
 class DocumentProcessor:
     """
@@ -41,11 +40,9 @@ class DocumentProcessor:
         """
         with open(file_path, 'rb') as file:
             reader = PdfReader(file)
-            text = ""
-            for page in reader.pages:
-                text += page.extract_text()
-            logging.info(f"Extracted text from PDF: {file_path}")
-            return text
+            text = "".join([page.extract_text() for page in reader.pages])
+        logging.info(f"Extracted text from PDF: {file_path}")
+        return text
 
     @staticmethod
     def extract_text_from_txt(file_path):

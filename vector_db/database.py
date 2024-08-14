@@ -9,7 +9,6 @@ from config import Config
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 class VectorDatabase:
     """
     Class for managing the SQLite and FAISS database operations.
@@ -25,17 +24,16 @@ class VectorDatabase:
         if config is None:
             config = Config
         elif isinstance(config, dict):
-            # Allow dict-like access for dictionary config
             config = type('Config', (object,), config)
 
-        self.dimension = config.EMBEDDING_DIMENSION  # Dimension of the embeddings used
+        self.dimension = config.EMBEDDING_DIMENSION
         self.conn = None
         self.cursor = None
         self.id_to_index = {}
         self.index_to_id_map = {}
         self.sqlite_db_path = config.SQLITE_DB_PATH
         self.faiss_index_path = config.FAISS_INDEX_PATH
-        self.index = None  # Initialize self.index here
+        self.index = None
         self.setup_sqlite()
         self.setup_faiss()
         self.load_mappings()
