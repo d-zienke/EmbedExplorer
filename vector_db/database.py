@@ -14,12 +14,13 @@ class VectorDatabase:
     Class for managing the SQLite and FAISS database operations.
     """
 
-    def __init__(self, config=None):
+    def __init__(self, config=None, use_faiss=True):
         """
         Initialize the VectorDatabase class.
 
         Args:
             config (dict or Config): Configuration dictionary or Config object. If not provided, defaults to Config.
+            use_faiss (bool): Whether to use FAISS for storing embeddings.
         """
         if config is None:
             config = Config
@@ -27,6 +28,7 @@ class VectorDatabase:
             config = type('Config', (object,), config)
 
         self.dimension = config.EMBEDDING_DIMENSION
+        self.use_faiss = use_faiss
         self.conn = None
         self.cursor = None
         self.id_to_index = {}
@@ -35,7 +37,8 @@ class VectorDatabase:
         self.faiss_index_path = config.FAISS_INDEX_PATH
         self.index = None
         self.setup_sqlite()
-        self.setup_faiss()
+        if self.use_faiss:
+            self.setup_faiss()
         self.load_mappings()
 
     def setup_sqlite(self):
@@ -45,13 +48,13 @@ class VectorDatabase:
         try:
             self.conn = sqlite3.connect(self.sqlite_db_path)
             self.cursor = self.conn.cursor()
-            # Updated schema to include a title column and a conversations table
             self.cursor.execute('''
                 CREATE TABLE IF NOT EXISTS documents (
                     id TEXT PRIMARY KEY,
                     title TEXT,
                     file_path TEXT,
-                    status TEXT
+                    status TEXT,
+                    embedding BLOB
                 )
             ''')
             self.cursor.execute('''
@@ -94,8 +97,9 @@ class VectorDatabase:
         try:
             self.cursor.execute("DELETE FROM documents")
             self.conn.commit()
-            self.index.reset()
-            faiss.write_index(self.index, self.faiss_index_path)
+            if self.use_faiss:
+                self.index.reset()
+                faiss.write_index(self.index, self.faiss_index_path)
             self.id_to_index.clear()
             self.index_to_id_map.clear()
             self.save_mappings()
@@ -106,7 +110,7 @@ class VectorDatabase:
 
     def store_embeddings(self, document_id, title, embeddings):
         """
-        Store the embeddings in the FAISS index.
+        Store the embeddings in the FAISS index and SQLite.
 
         Args:
             document_id (str): Document ID.
@@ -119,18 +123,40 @@ class VectorDatabase:
                 embeddings_array = embeddings_array.reshape(1, -1)
             assert embeddings_array.shape[1] == self.dimension, \
                 f"Embedding dimension mismatch: {embeddings_array.shape[1]} != {self.dimension}"
-            start_index = self.index.ntotal
-            self.index.add(embeddings_array)
-            for i in range(embeddings_array.shape[0]):
-                index = start_index + i
-                self.id_to_index[document_id] = index
-                self.index_to_id_map[index] = document_id
-            faiss.write_index(self.index, self.faiss_index_path)
+
+            # Store in FAISS
+            if self.use_faiss:
+                start_index = self.index.ntotal
+                self.index.add(embeddings_array)
+                for i in range(embeddings_array.shape[0]):
+                    index = start_index + i
+                    self.id_to_index[document_id] = index
+                    self.index_to_id_map[index] = document_id
+                faiss.write_index(self.index, self.faiss_index_path)
+                logging.info(f"Embeddings for document {document_id} stored in FAISS.")
+
+            # Store in SQLite
+            self.store_embedding_in_sqlite(document_id, title, embeddings_array)
+
             self.save_mappings()
-            logging.info(f"Embeddings for document {document_id} stored.")
         except Exception as e:
             logging.error(f"Error storing embeddings for document {document_id}: {e}")
             raise
+
+    def store_embedding_in_sqlite(self, document_id, title, embeddings):
+        """ Store embedding in SQLite database. """
+        try:
+            conn, cursor = self.setup_sqlite()  # Create a new connection and cursor
+            embedding_blob = embeddings.tobytes()
+            cursor.execute('''
+                INSERT INTO documents (id, title, embedding) VALUES (?, ?, ?)
+            ''', (document_id + "_" + str(np.random.randint(1000)), title, embedding_blob))
+            conn.commit()
+            cursor.close()
+            conn.close()
+            logging.info(f"Stored embedding in SQLite for document {document_id}.")
+        except Exception as e:
+            logging.error(f"Error storing embedding in SQLite: {e}")
 
     def is_document_processed(self, document_id):
         """
@@ -177,11 +203,13 @@ class VectorDatabase:
             list: List of tuples containing document IDs, titles, and file paths.
         """
         try:
-            self.cursor.execute("SELECT id, title, file_path FROM documents")
-            return self.cursor.fetchall()
+            self.cursor.execute("SELECT id, title, file_path FROM documents WHERE file_path IS NOT NULL")
+            documents = self.cursor.fetchall()
+            logging.info(f"Retrieved document titles: {documents}")
+            return documents
         except sqlite3.Error as e:
             logging.error(f"Error listing documents: {e}")
-            raise
+            return []
 
     def delete_document(self, document_id):
         """

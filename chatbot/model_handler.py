@@ -3,6 +3,7 @@ import os
 import logging
 from sentence_transformers import SentenceTransformer
 from config import Config
+import time  # Added for fallback mechanism
 
 class ModelHandler:
     """
@@ -29,7 +30,17 @@ class ModelHandler:
         Returns:
             numpy.ndarray: Generated embedding.
         """
-        return self.embedding_model.encode(text)
+        retries = 3
+        for attempt in range(retries):
+            try:
+                return self.embedding_model.encode(text)
+            except Exception as e:
+                logging.error(f"Error generating embedding for text: '{text}'. Attempt {attempt + 1} of {retries}. Error: {e}")
+                if attempt < retries - 1:
+                    time.sleep(2 ** attempt)  # Exponential backoff
+                else:
+                    logging.error(f"Failed to generate embedding after {retries} attempts.")
+                    return None
 
     def generate_response(self, prompt, system_prompt=None):
         """
@@ -56,7 +67,6 @@ class ModelHandler:
                     presence_penalty=Config.PRESENCE_PENALTY
                 )
                 return response.choices[0].message.content
-                # return response.choices[0].message['content']
         except Exception as e:
             logging.error(f"An error occurred while communicating with OpenAI: {e}")
             return "Sorry, I'm unable to generate a response at the moment. Please try again later."

@@ -8,6 +8,7 @@ from sentence_transformers import util
 from chatbot.model_handler import ModelHandler
 from vector_db.database import VectorDatabase
 from config import Config
+import threading  # Added for thread safety
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(message)s')
@@ -16,6 +17,7 @@ class QueryHandler:
     def __init__(self):
         self.vector_db = VectorDatabase()
         self.model_handler = ModelHandler()
+        self.lock = threading.Lock()  # Thread safety for SQLite
 
     def recognize_intent(self, query_text):
         """
@@ -25,41 +27,11 @@ class QueryHandler:
         Returns:
             str: Recognized intent (e.g., "list_documents", "reset_context").
         """
-        # Check for immediate keywords or patterns
-        # immediate_intent = self.preliminary_intent_filter(query_text)
-        # if immediate_intent:
-        #     return immediate_intent
-
-        # Otherwise, use GPT-based analysis
         gpt_intent = self.model_handler.recognize_intent_with_gpt(query_text)
         if gpt_intent:
             return gpt_intent
 
-        # If GPT analysis is inconclusive, fallback to embedding-based similarity
         return self.embedding_based_intent_recognition(query_text)
-
-
-    # def preliminary_intent_filter(self, query_text):
-    #     """
-    #     Preliminary filter to check for specific keywords or patterns.
-    #     Args:
-    #         query_text (str): The user's query text.
-    #     Returns:
-    #         str or None: Recognized intent if a match is found, otherwise None.
-    #     """
-    #     keywords_to_intents = {
-    #         "what are you": "general_info",
-    #         "who are you": "general_info",
-    #         "list documents": "list_documents",
-    #         "show documents": "list_documents",
-    #         # Add more immediate keyword checks as needed
-    #     }
-
-    #     query_lower = query_text.lower()
-    #     for keyword, intent in keywords_to_intents.items():
-    #         if keyword in query_lower:
-    #             return intent
-    #     return None
 
     def embedding_based_intent_recognition(self, query_text):
         """
@@ -92,12 +64,19 @@ class QueryHandler:
         }
 
         query_embedding = self.model_handler.generate_embedding(query_text)
+        if query_embedding is None:
+            logging.error("Failed to generate query embedding. Intent recognition aborted.")
+            return None
+
         best_intent = None
         highest_score = 0
 
         for intent, examples in intents.items():
             for example in examples:
                 example_embedding = self.model_handler.generate_embedding(example)
+                if example_embedding is None:
+                    continue  # Skip if embedding generation fails
+
                 score = util.pytorch_cos_sim(query_embedding, example_embedding).item()
 
                 if score > highest_score:
@@ -142,6 +121,10 @@ class QueryHandler:
             list: Metadata of the top relevant documents.
         """
         query_vector = self.model_handler.generate_embedding(query_text)
+        if query_vector is None:
+            logging.error("Failed to generate query vector. Document retrieval aborted.")
+            return []
+
         logging.info("Query vector generated.")
         top_indices = self.vector_db.query_embeddings(query_vector, top_k=top_k)
         logging.info(f"Top indices from FAISS query: {top_indices}")
@@ -198,7 +181,7 @@ class QueryHandler:
         Returns:
             list: Generated responses.
         """
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=min(len(prompts), os.cpu_count())) as executor:
             responses = list(
                 executor.map(lambda prompt: self.model_handler.generate_response(prompt, system_prompt), prompts)
             )
@@ -212,7 +195,7 @@ class QueryHandler:
         Returns:
             list: List of text contents from the documents.
         """
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(max_workers=min(len(file_paths), os.cpu_count())) as executor:
             results = list(executor.map(self.read_document, file_paths))
         return results
 
@@ -237,22 +220,34 @@ class QueryHandler:
 
     @staticmethod
     def extract_text_from_pdf(file_path):
-        with open(file_path, 'rb') as file:
-            reader = PdfReader(file)
-            text = "".join([page.extract_text() for page in reader.pages])
-        return text
+        try:
+            with open(file_path, 'rb') as file:
+                reader = PdfReader(file)
+                text = "".join([page.extract_text() for page in reader.pages])
+            return text
+        except Exception as e:
+            logging.error(f"Error extracting text from PDF {file_path}: {e}")
+            return ""
 
     @staticmethod
     def extract_text_from_txt(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            return file.read()
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                return file.read()
+        except Exception as e:
+            logging.error(f"Error extracting text from TXT {file_path}: {e}")
+            return ""
 
     @staticmethod
     def extract_text_from_markdown(file_path):
-        with open(file_path, 'r', encoding='utf-8') as file:
-            md = file.read()
-        html = markdown.markdown(md)
-        return ''.join(re.findall(r'>[^<]+<', html))  # Extract text between tags
+        try:
+            with open(file_path, 'r', encoding='utf-8') as file:
+                md = file.read()
+            html = markdown.markdown(md)
+            return ''.join(re.findall(r'>[^<]+<', html))  # Extract text between tags
+        except Exception as e:
+            logging.error(f"Error extracting text from Markdown {file_path}: {e}")
+            return ""
 
     def list_document_titles(self):
         """

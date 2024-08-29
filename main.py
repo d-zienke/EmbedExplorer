@@ -22,6 +22,7 @@ def main():
     """
     parser = argparse.ArgumentParser(description="EmbedExplorer")
     parser.add_argument('--log', type=str, default='info', help='Logging level (debug, info, warning, error, critical)')
+    parser.add_argument('--no-faiss', action='store_true', help='Disable FAISS for debugging purposes')
     args = parser.parse_args()
 
     logging_level = getattr(logging, args.log.upper(), logging.INFO)
@@ -33,7 +34,8 @@ def main():
         ensure_directories()  # Ensure necessary directories exist
 
         vector_db = VectorDatabase()
-        doc_processor = DocumentProcessor(vector_db)
+        # Pass the no-faiss argument to the DocumentProcessor
+        doc_processor = DocumentProcessor(vector_db, use_faiss=not args.no_faiss)
 
         knowledge_path = 'knowledge/text_documents'
         for file_name in os.listdir(knowledge_path):
